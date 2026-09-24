@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle Arena - 1v1 对战游戏</title>
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6', // 蓝色
+                        secondary: '#F97316', // 橙色
+                        background: '#0F172A',
+                        'player-1': '#3B82F6',
+                        'player-2': '#F97316',
+                        'health-bar': '#10B981',
+                        'energy-bar': '#8B5CF6',
+                        'cooldown-overlay': 'rgba(0, 0, 0, 0.7)'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                    animation: {
+                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
+                        'glow': 'glow 1.5s ease-in-out infinite alternate',
+                        'slide-in': 'slideIn 0.5s ease-out forwards',
+                        'fade-in': 'fadeIn 0.5s ease-out forwards',
+                        'skill-effect': 'skillEffect 0.8s ease-out forwards',
+                    },
+                    keyframes: {
+                        shake: {
+                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
+                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
+                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
+                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
+                        },
+                        glow: {
+                            '0%': { filter: 'brightness(1) drop-shadow(0 0 5px rgba(59, 130, 246, 0.5))' },
+                            '100%': { filter: 'brightness(1.2) drop-shadow(0 0 15px rgba(59, 130, 246, 0.8))' }
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateX(-100%)', opacity: 0 },
+                            '100%': { transform: 'translateX(0)', opacity: 1 }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: 0 },
+                            '100%': { opacity: 1 }
+                        },
+                        skillEffect: {
+                            '0%': { transform: 'scale(0.5)', opacity: 0 },
+                            '50%': { transform: 'scale(1.2)', opacity: 1 },
+                            '100%': { transform: 'scale(1)', opacity: 1 }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .text-shadow {
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+            }
+            .text-shadow-lg {
+                text-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+            }
+            .character-shadow {
+                filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.4));
+            }
+            .skill-icon {
+                @apply relative w-16 h-16 rounded-full bg-gray-800 border-2 border-gray-700 overflow-hidden cursor-pointer transition-all duration-200;
+            }
+            .skill-icon:hover:not(.on-cooldown) {
+                @apply scale-110 border-primary shadow-lg shadow-primary/30;
+            }
+            .skill-icon.on-cooldown {
+                @apply cursor-not-allowed opacity-80;
+            }
+            .cooldown-mask {
+                @apply absolute bottom-0 left-0 bg-cooldown-overlay transition-all duration-1000 ease-linear;
+            }
+            .health-bar, .energy-bar {
+                @apply h-full rounded-full transition-all duration-300 ease-out;
+            }
+            .joystick-outer {
+                @apply absolute bottom-20 left-8 w-32 h-32 rounded-full bg-gray-800/50 border-2 border-gray-700 touch-none;
+            }
+            .joystick-inner {
+                @apply absolute top-1/2 left-1/2 w-16 h-16 rounded-full bg-primary/80 transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-150 ease-out;
+            }
+            .floating-text {
+                @apply absolute text-white font-bold text-shadow-lg pointer-events-none;
+                animation: floatText 2s ease-out forwards;
+            }
+            @keyframes floatText {
+                0% { opacity: 1; transform: translateY(0); }
+                100% { opacity: 0; transform: translateY(-50px); }
+            }
+            .combo-indicator {
+                @apply absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-3 py-1 rounded-full text-lg font-bold opacity-0 transition-opacity duration-300;
+            }
+            .combo-indicator.show {
+                @apply opacity-100;
+            }
+        }
+    </style>
+</head>
+<body class="bg-background text-white overflow-hidden h-screen">
+    <!-- 游戏容器 -->
+    <div id="game-container" class="relative w-full h-screen flex flex-col">
+        <!-- 开始屏幕 -->
+        <div id="start-screen" class="absolute inset-0 bg-background flex flex-col items-center justify-center z-50">
+            <h1 class="text-5xl md:text-7xl font-bold mb-8 text-center text-shadow-lg">
+                <span class="text-player-1">Battle</span> <span class="text-player-2">Arena</span>
+            </h1>
+            <div class="flex flex-col md:flex-row gap-8 mb-12">
+                <div id="warrior-selection" class="character-selection cursor-pointer transform transition-transform hover:scale-105">
+                    <div class="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-transparent hover:border-player-1 flex items-center justify-center bg-gray-900">
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-500">
+                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                                <rect x="40" y="20" width="20" height="60" fill="#1e40af" />
+                                <path d="M30 40 L70 40 L60 80 L40 80 Z" fill="#3b82f6" />
+                                <circle cx="50" cy="30" r="15" fill="#1e40af" />
+                                <path d="M35 20 L65 20 L60 10 L40 10 Z" fill="#3b82f6" />
+                                <path d="M20 50 L30 50 L35 70 L15 70 Z" fill="#3b82f6" />
+                                <path d="M70 50 L80 50 L85 70 L65 70 Z" fill="#3b82f6" />
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mt-4 text-center">战士</h3>
+                    <p class="text-gray-400 text-center">近战坦克，高防御</p>
+                </div>
+                <div id="mage-selection" class="character-selection cursor-pointer transform transition-transform hover:scale-105">
+                    <div class="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-transparent hover:border-player-2 flex items-center justify-center bg-gray-900">
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-700 to-orange-500">
+                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                                <path d="M30 40 C30 20 70 20 70 40 L75 80 L25 80 Z" fill="#ea580c" />
+                                <path d="M40 20 C40 10 60 10 60 20 C60 25 40 25 40 20 Z" fill="#f97316" />
+                                <circle cx="50" cy="30" r="10" fill="#f97316" />
+                                <path d="M45 40 L55 40 L55 70 L45 70 Z" fill="#fdba74" />
+                                <path d="M35 50 L45 50 L40 60 L30 55 Z" fill="#f97316" />
+                                <path d="M55 50 L65 50 L70 55 L60 60 Z" fill="#f97316" />
+                                <path d="M45 15 L55 15 L50 5 Z" fill="#f97316" />
+                            </svg>
+                        </div>
+                    </div>
+                    <h3 class="text-xl font-bold mt-4 text-center">法师</h3>
+                    <p class="text-gray-400 text-center">远程输出，高爆发</p>
+                </div>
+            </div>
+            <button id="start-button" class="px-8 py-4 bg-gradient-to-r from-player-1 to-player-2 rounded-full text-xl font-bold hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                开始游戏
+            </button>
+        </div>
+
+        <!-- 游戏界面 -->
+        <div id="game-screen" class="relative w-full h-full hidden">
+            <!-- 战斗背景 -->
+            <div class="absolute inset-0 z-0 bg-gradient-to-b from-gray-900 to-gray-800">
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1),transparent_70%)]"></div>
+                <div class="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/50 to-transparent"></div>
+                <!-- 装饰性元素 -->
+                <div class="absolute top-1/4 left-1/4 w-32 h-32 rounded-full bg-primary/10 blur-3xl"></div>
+                <div class="absolute top-1/3 right-1/4 w-48 h-48 rounded-full bg-secondary/10 blur-3xl"></div>
+                <div class="absolute bottom-1/4 left-1/3 w-40 h-40 rounded-full bg-purple-500/10 blur-3xl"></div>
+            </div>
+
+            <!-- 玩家信息区 -->
+            <div class="absolute top-4 left-4 right-4 flex justify-between z-10">
+                <!-- 玩家1信息 -->
+                <div class="player-info flex flex-col w-1/3">
+                    <div class="flex items-center mb-2">
+                        <div class="w-10 h-10 rounded-full overflow-hidden mr-2 border-2 border-player-1">
+                            <img id="player-1-avatar" src="" alt="玩家1" class="w-full h-full object-cover">
+                        </div>
+                        <h3 id="player-1-name" class="font-bold">玩家1</h3>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <div class="relative w-full h-6 bg-gray-800 rounded-full overflow-hidden">
+                            <div id="player-1-health" class="health-bar bg-health-bar" style="width: 100%"></div>
+                            <span id="player-1-health-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
+                        </div>
+                        <div class="relative w-full h-4 bg-gray-800 rounded-full overflow-hidden">
+                            <div id="player-1-energy" class="energy-bar bg-energy-bar" style="width: 100%"></div>
+                            <span id="player-1-energy-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 对战指示器 -->
+                <div class="flex items-center justify-center">
+                    <div class="px-4 py-2 bg-black/50 rounded-full text-lg font-bold">VS</div>
+                </div>
+
+                <!-- 玩家2信息 -->
+                <div class="player-info flex flex-col items-end w-1/3">
+                    <div class="flex items-center mb-2">
+                        <h3 id="player-2-name" class="font-bold">玩家2</h3>
+                        <div class="w-10 h-10 rounded-full overflow-hidden ml-2 border-2 border-player-2">
+                            <img id="player-2-avatar" src="" alt="玩家2" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                    <div class="flex flex-col gap-2 w-full">
+                        <div class="relative w-full h-6 bg-gray-800 rounded-full overflow-hidden">
+                            <div id="player-2-health" class="health-bar bg-health-bar" style="width: 100%"></div>
+                            <span id="player-2-health-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
+                        </div>
+                        <div class="relative w-full h-4 bg-gray-800 rounded-full overflow-hidden">
+                            <div id="player-2-energy" class="energy-bar bg-energy-bar" style="width: 100%"></div>
+                            <span id="player-2-energy-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 战斗区域 -->
+            <div class="absolute inset-0 flex items-center justify-between px-16 z-20">
+                <!-- 玩家1角色 -->
+                <div id="player-1-character" class="character-container relative flex flex-col items-center">
+                    <div class="combo-indicator" id="player-1-combo">连击: 0</div>
+                    <div class="character-shadow animate-fade-in">
+                        <img id="player-1-sprite" src="" alt="玩家1角色" class="w-48 h-48 object-contain">
+                    </div>
+                </div>
+
+                <!-- 玩家2角色 -->
+                <div id="player-2-character" class="character-container relative flex flex-col items-center">
+                    <div class="combo-indicator" id="player-2-combo">连击: 0</div>
+                    <div class="character-shadow animate-fade-in">
+                        <img id="player-2-sprite" src="" alt="玩家2角色" class="w-48 h-48 object-contain">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 技能栏 -->
+            <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-4 z-30">
+                <div class="skill-bar flex gap-3 bg-black/50 p-3 rounded-xl">
+                    <div class="skill-icon" data-skill="1">
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-600 to-green-400">
+                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                                <path d="M30 30 L70 70 M30 70 L70 30" stroke="white" stroke-width="8" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <div class="cooldown-mask" style="height: 0%"></div>
+                    </div>
+                    <div class="skill-icon" data-skill="2">
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-600 to-yellow-400">
+                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                                <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="8" />
+                                <path d="M50 20 L50 35 M50 65 L50 80 M20 50 L35 50 M65 50 L80 50" stroke="white" stroke-width="8" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <div class="cooldown-mask" style="height: 0%"></div>
+                    </div>
+                    <div class="skill-icon" data-skill="3">
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-400">
+                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                                <path d="M20 50 C40 30 60 70 80 50" stroke="white" stroke-width="8" fill="none" />
+                                <circle cx="20" cy="50" r="8" fill="white" />
+                                <circle cx="80" cy="50" r="8" fill="white" />
+                            </svg>
+                        </div>
+                        <div class="cooldown-mask" style="height: 0%"></div>
+                    </div>
+                    <div class="skill-icon ultimate" data-skill="4">
+                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-600 to-purple-400">
+                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                                <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="8" />
+                                <circle cx="50" cy="50" r="15" fill="white" />
+                                <circle cx="50" cy="50" r="5" fill="purple" />
+                                <path d="M50 10 L50 20 M50 80 L50 90 M10 50 L20 50 M80 50 L90 50" stroke="white" stroke-width="6" stroke-linecap="round" />
+                            </svg>
+                        </div>
+                        <div class="cooldown-mask" style="height: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 虚拟摇杆 -->
+            <div class="joystick-outer" id="joystick-outer">
+                <div class="joystick-inner" id="joystick-inner"></div>
+            </div>
+        </div>
+
+        <!-- 游戏结束屏幕 -->
+        <div id="end-screen" class="absolute inset-0 bg-background/90 flex flex-col items-center justify-center z-50 hidden">
+            <h2 id="result-text" class="text-4xl font-bold mb-8 text-shadow-lg">战斗结束!</h2>
+            <div id="winner-display" class="w-48 h-48 rounded-full overflow-hidden border-4 border-primary mb-8 flex items-center justify-center">
+                <div id="winner-icon" class="w-full h-full flex items-center justify-center">
+                    <!-- 胜利者图标将通过JS动态设置 -->
+                </div>
+            </div>
+            <button id="restart-button" class="px-8 py-4 bg-gradient-to-r from-player-1 to-player-2 rounded-full text-xl font-bold hover:shadow-lg hover:shadow-primary/30 transition-all">
+                再来一局
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 游戏状态
+        const gameState = {
+            currentScreen: 'start',
+            selectedCharacter: null,
+            player1: {
+                name: '玩家1',
+                character: null,
+                health: 100,
+                maxHealth: 100,
+                energy: 100,
+                maxEnergy: 100,
+                position: { x: 100, y: 0 },
+                combo: 0,
+                lastSkillTime: 0,
+                skillSequence: []
+            },
+            player2: {
+                name: '玩家2',
+                character: null,
+                health: 100,
+                maxHealth: 100,
+                energy: 100,
+                maxEnergy: 100,
+                position: { x: -100, y: 0 },
+                combo: 0,
+                lastSkillTime: 0,
+                skillSequence: []
+            },
+            isPlaying: false,
+            gameLoop: null,
+            lastUpdateTime: 0
+        };
+
+        // 角色数据
+        const characters = {
+            warrior: {
+                name: '战士',
+                color: 'blue',
+                health: 150,
+                energy: 100,
+                skills: {
+                    1: { name: '猛击', damage: 20, energy: 15, cooldown: 2000, combo: true },
+                    2: { name: '盾牌格挡', damage: 0, energy: 20, cooldown: 5000, heal: 15, combo: false },
+                    3: { name: '旋风斩', damage: 30, energy: 30, cooldown: 4000, combo: true },
+                    4: { name: '英勇打击', damage: 50, energy: 50, cooldown: 10000, combo: false }
+                },
+                comboEffects: {
+                    '1-3': { name: '致命连击', damage: 15, energy: 0 },
+                    '3-1': { name: '旋风猛击', damage: 10, stun: true }
+                },
+                getIcon: () => `
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-500">
+                        <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                            <rect x="40" y="20" width="20" height="60" fill="#1e40af" />
+                            <path d="M30 40 L70 40 L60 80 L40 80 Z" fill="#3b82f6" />
+                            <circle cx="50" cy="30" r="15" fill="#1e40af" />
+                            <path d="M35 20 L65 20 L60 10 L40 10 Z" fill="#3b82f6" />
+                            <path d="M20 50 L30 50 L35 70 L15 70 Z" fill="#3b82f6" />
+                            <path d="M70 50 L80 50 L85 70 L65 70 Z" fill="#3b82f6" />
+                        </svg>
+                    </div>
+                `
+            },
+            mage: {
+                name: '法师',
+                color: 'orange',
+                health: 100,
+                energy: 150,
+                skills: {
+                    1: { name: '火球术', damage: 25, energy: 20, cooldown: 1500, combo: true },
+                    2: { name: '冰霜新星', damage: 15, energy: 25, cooldown: 3000, slow: true, combo: true },
+                    3: { name: '闪电链', damage: 35, energy: 35, cooldown: 3500, combo: true },
+                    4: { name: '奥术爆炸', damage: 60, energy: 60, cooldown: 8000, combo: false }
+                },
+                comboEffects: {
+                    '1-2': { name: '冰火交融', damage: 20, energy: 5 },
+                    '2-3': { name: '元素风暴', damage: 25, energy: 10 }
+                },
+                getIcon: () => `
+                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-700 to-orange-500">
+                        <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
+                            <path d="M30 40 C30 20 70 20 70 40 L75 80 L25 80 Z" fill="#ea580c" />
+                            <path d="M40 20 C40 10 60 10 60 20 C60 25 40 25 40 20 Z" fill="#f97316" />
+                            <circle cx="50" cy="30" r="10" fill="#f97316" />
+                            <path d="M45 40 L55 40 L55 70 L45 70 Z" fill="#fdba74" />
+                            <path d="M35 50 L45 50 L40 60 L30 55 Z" fill="#f97316" />
+                            <path d="M55 50 L65 50 L70 55 L60 60 Z" fill="#f97316" />
+                            <path d="M45 15 L55 15 L50 5 Z" fill="#f97316" />
+                        </svg>
+                    </div>
+                `
+            }
+        };
+
+        // 技能冷却状态
+        let skillCooldowns = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0
+        };
+
+        // 虚拟摇杆状态
+        const joystick = {
+            isActive: false,
+            startX: 0,
+            startY: 0,
+            currentX: 0,
+            currentY: 0,
+            maxDistance: 60
+        };
+
+        // DOM 元素
+        const startScreen = document.getElementById('start-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const endScreen = document.getElementById('end-screen');
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const warriorSelection = document.getElementById('warrior-selection');
+        const mageSelection = document.getElementById('mage-selection');
+        const joystickOuter = document.getElementById('joystick-outer');
+        const joystickInner = document.getElementById('joystick-inner');
+        const skillIcons = document.querySelectorAll('.skill-icon');
+
+        // 初始化游戏
+        function initGame() {
+            // 角色选择事件
+            warriorSelection.addEventListener('click', () => selectCharacter('warrior'));
+            mageSelection.addEventListener('click', () => selectCharacter('mage'));
+            
+            // 开始游戏按钮
+            startButton.addEventListener('click', startGame);
+            
+            // 重新开始按钮
+            restartButton.addEventListener('click', restartGame);
+            
+            // 技能按钮事件
+            skillIcons.forEach(icon => {
+                icon.addEventListener('click', () => {
+                    const skillId = parseInt(icon.dataset.skill);
+                    if (!icon.classList.contains('on-cooldown')) {
+                        useSkill(skillId);
+                    }
+                });
+            });
+            
+            // 键盘事件
+            document.addEventListener('keydown', handleKeyDown);
+            
+            // 虚拟摇杆事件
+            setupJoystick();
+            
+            // 初始化游戏循环
+            window.requestAnimationFrame(updateGame);
+        }
+
+        // 角色选择
+        function selectCharacter(characterType) {
+            // 重置之前的选择
+            warriorSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
+            mageSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
+            
+            // 设置新选择
+            gameState.selectedCharacter = characterType;
+            
+            // 视觉反馈
+            if (characterType === 'warrior') {
+                warriorSelection.querySelector('div').classList.add('border-player-1');
+            } else {
+                mageSelection.querySelector('div').classList.add('border-player-2');
+            }
+            
+            // 启用开始按钮
+            startButton.disabled = false;
+        }
+
+        // 开始游戏
+        function startGame() {
+            // 设置玩家角色
+            gameState.player1.character = gameState.selectedCharacter;
+            
+            // 电脑随机选择另一个角色
+            gameState.player2.character = gameState.selectedCharacter === 'warrior' ? 'mage' : 'warrior';
+            
+            // 初始化玩家属性
+            const player1Char = characters[gameState.player1.character];
+            const player2Char = characters[gameState.player2.character];
+            
+            gameState.player1.health = gameState.player1.maxHealth = player1Char.health;
+            gameState.player1.energy = gameState.player1.maxEnergy = player1Char.energy;
+            
+            gameState.player2.health = gameState.player2.maxHealth = player2Char.health;
+            gameState.player2.energy = gameState.player2.maxEnergy = player2Char.energy;
+            
+            // 更新UI
+            updateUI();
+            
+            // 切换到游戏屏幕
+            startScreen.classList.add('hidden');
+            gameScreen.classList.remove('hidden');
+            
+            // 设置游戏状态
+            gameState.currentScreen = 'game';
+            gameState.isPlaying = true;
+            gameState.lastUpdateTime = performance.now();
+            
+            // 重置技能冷却
+            resetCooldowns();
+        }
+
+        // 重置技能冷却
+        function resetCooldowns() {
+            skillCooldowns = {
+                1: 0,
+                2: 0,
+                3: 0,
+                4: 0
+            };
+            
+            // 更新UI
+            skillIcons.forEach(icon => {
+                icon.classList.remove('on-cooldown');
+                icon.querySelector('.cooldown-mask').style.height = '0%';
+            });
+        }
+
+        // 更新UI
+        function updateUI() {
+            // 更新玩家1信息
+            document.getElementById('player-1-name').textContent = gameState.player1.name;
+            
+            // 设置玩家1头像
+            const player1Avatar = document.getElementById('player-1-avatar');
+            player1Avatar.innerHTML = characters[gameState.player1.character].getIcon();
+            player1Avatar.classList.add('flex', 'items-center', 'justify-center');
+            
+            // 设置玩家1角色图标
+            const player1Sprite = document.getElementById('player-1-sprite');
+            player1Sprite.innerHTML = characters[gameState.player1.character].getIcon();
+            player1Sprite.classList.add('flex', 'items-center', 'justify-center');
+            player1Sprite.style.width = '100%';
+            player1Sprite.style.height = '100%';
+            
+            document.getElementById('player-1-health').style.width = `${(gameState.player1.health / gameState.player1.maxHealth) * 100}%`;
+            document.getElementById('player-1-health-text').textContent = `${Math.round(gameState.player1.health)}/${gameState.player1.maxHealth}`;
+            
+            document.getElementById('player-1-energy').style.width = `${(gameState.player1.energy / gameState.player1.maxEnergy) * 100}%`;
+            document.getElementById('player-1-energy-text').textContent = `${Math.round(gameState.player1.energy)}/${gameState.player1.maxEnergy}`;
+            
+            // 更新玩家2信息
+            document.getElementById('player-2-name').textContent = gameState.player2.name;
+            
+            // 设置玩家2头像
+            const player2Avatar = document.getElementById('player-2-avatar');
+            player2Avatar.innerHTML = characters[gameState.player2.character].getIcon();
+            player2Avatar.classList.add('flex', 'items-center', 'justify-center');
+            
+            // 设置玩家2角色图标
+            const player2Sprite = document.getElementById('player-2-sprite');
+            player2Sprite.innerHTML = characters[gameState.player2.character].getIcon();
+            player2Sprite.classList.add('flex', 'items-center', 'justify-center');
+            player2Sprite.style.width = '100%';
+            player2Sprite.style.height = '100%';
+            
+            document.getElementById('player-2-health').style.width = `${(gameState.player2.health / gameState.player2.maxHealth) * 100}%`;
+            document.getElementById('player-2-health-text').textContent = `${Math.round(gameState.player2.health)}/${gameState.player2.maxHealth}`;
+            
+            document.getElementById('player-2-energy').style.width = `${(gameState.player2.energy / gameState.player2.maxEnergy) * 100}%`;
+            document.getElementById('player-2-energy-text').textContent = `${Math.round(gameState.player2.energy)}/${gameState.player2.maxEnergy}`;
+            
+            // 更新连击显示
+            document.getElementById('player-1-combo').textContent = `连击: ${gameState.player1.combo}`;
+            document.getElementById('player-2-combo').textContent = `连击: ${gameState.player2.combo}`;
+        }
+
+        // 使用技能
+        function useSkill(skillId) {
+            if (!gameState.isPlaying) return;
+            
+            const playerChar = characters[gameState.player1.character];
+            const skill = playerChar.skills[skillId];
+            
+            // 检查能量是否足够
+            if (gameState.player1.energy < skill.energy) {
+                showNotification('能量不足!');
+                return;
+            }
+            
+            // 检查冷却
+            if (skillCooldowns[skillId] > 0) {
+                return;
+            }
+            
+            // 消耗能量
+            gameState.player1.energy -= skill.energy;
+            
+            // 设置冷却
+            skillCooldowns[skillId] = skill.cooldown;
+            const skillIcon = document.querySelector(`.skill-icon[data-skill="${skillId}"]`);
+            skillIcon.classList.add('on-cooldown');
+            skillIcon.querySelector('.cooldown-mask').style.height = '100%';
+            
+            // 应用技能效果
+            applySkillEffect(skill, skillId);
+            
+            // 更新连击
+            if (skill.combo) {
+                const now = Date.now();
+                // 如果上次技能使用在2秒内，增加连击
+                if (now - gameState.player1.lastSkillTime < 2000) {
+                    gameState.player1.combo++;
+                    gameState.player1.skillSequence.push(skillId);
+                    
+                    // 显示连击数
+                    document.getElementById('player-1-combo').classList.add('show');
+                    setTimeout(() => {
+                        document.getElementById('player-1-combo').classList.remove('show');
+                    }, 1000);
+                    
+                    // 检查连击效果
+                    checkComboEffect();
+                } else {
+                    // 重置连击
+                    gameState.player1.combo = 1;
+                    gameState.player1.skillSequence = [skillId];
+                }
+                gameState.player1.lastSkillTime = now;
+            } else {
+                // 重置连击
+                gameState.player1.combo = 0;
+                gameState.player1.skillSequence = [];
+            }
+            
+            // 更新UI
+            updateUI();
+            
+            // 触发电脑反击
+            setTimeout(computerAttack, 1000 + Math.random() * 2000);
+        }
+
+        // 应用技能效果
+        function applySkillEffect(skill, skillId) {
+            // 创建技能效果动画
+            const effect = document.createElement('div');
+            effect.className = 'absolute w-32 h-32 bg-primary/30 rounded-full animate-skill-effect';
+            effect.style.left = '50%';
+            effect.style.top = '50%';
+            effect.style.transform = 'translate(-50%, -50%)';
+            
+            // 添加到玩家1角色
+            document.getElementById('player-1-character').appendChild(effect);
+            
+            // 移除效果
+            setTimeout(() => {
+                effect.remove();
+            }, 800);
+            
+            // 对敌人造成伤害
+            if (skill.damage > 0) {
+                // 显示伤害数字
+                showDamageNumber(gameState.player2.health - skill.damage, gameState.player2.health, 'player-2-character');
+                
+                // 应用伤害
+                gameState.player2.health = Math.max(0, gameState.player2.health - skill.damage);
+                
+                // 敌人受击动画
+                document.getElementById('player-2-character').classList.add('animate-shake');
+                setTimeout(() => {
+                    document.getElementById('player-2-character').classList.remove('animate-shake');
+                }, 500);
+            }
+            
+            // 治疗效果
+            if (skill.heal) {
+                // 显示治疗数字
+                showHealNumber(gameState.player1.health + skill.heal, gameState.player1.health, 'player-1-character');
+                
+                // 应用治疗
+                gameState.player1.health = Math.min(gameState.player1.maxHealth, gameState.player1.health + skill.heal);
+                
+                // 治疗动画
+                document.getElementById('player-1-character').classList.add('animate-glow');
+                setTimeout(() => {
+                    document.getElementById('player-1-character').classList.remove('animate-glow');
+                }, 1000);
+            }
+            
+            // 检查游戏结束
+            checkGameEnd();
+        }
+
+        // 显示伤害数字
+        function showDamageNumber(newHealth, oldHealth, targetId) {
+            const damage = oldHealth - newHealth;
+            if (damage <= 0) return;
+            
+            const damageText = document.createElement('div');
+            damageText.className = 'floating-text text-red-500';
+            damageText.textContent = `-${damage}`;
+            damageText.style.left = `${Math.random() * 50 + 25}%`;
+            damageText.style.top = `${Math.random() * 50 + 25}%`;
+            
+            document.getElementById(targetId).appendChild(damageText);
+            
+            setTimeout(() => {
+                damageText.remove();
+            }, 2000);
+        }
+
+        // 显示治疗数字
+        function showHealNumber(newHealth, oldHealth, targetId) {
+            const heal = newHealth - oldHealth;
+            if (heal <= 0) return;
+            
+            const healText = document.createElement('div');
+            healText.className = 'floating-text text-green-500';
+            healText.textContent = `+${heal}`;
+            healText.style.left = `${Math.random() * 50 + 25}%`;
+            healText.style.top = `${Math.random() * 50 + 25}%`;
+            
+            document.getElementById(targetId).appendChild(healText);
+            
+            setTimeout(() => {
+                healText.remove();
+            }, 2000);
+        }
+
+        // 检查连击效果
+        function checkComboEffect() {
+            const sequence = gameState.player1.skillSequence.join('-');
+            const playerChar = characters[gameState.player1.character];
+            
+            // 检查是否有匹配的连击效果
+            if (playerChar.comboEffects[sequence]) {
+                const comboEffect = playerChar.comboEffects[sequence];
+                
+                // 显示连击效果通知
+                showNotification(`触发连击: ${comboEffect.name}!`);
+                
+                // 应用额外伤害
+                if (comboEffect.damage) {
+                    showDamageNumber(gameState.player2.health - comboEffect.damage, gameState.player2.health, 'player-2-character');
+                    gameState.player2.health = Math.max(0, gameState.player2.health - comboEffect.damage);
+                }
+                
+                // 恢复能量
+                if (comboEffect.energy) {
+                    gameState.player1.energy = Math.min(gameState.player1.maxEnergy, gameState.player1.energy + comboEffect.energy);
+                }
+                
+                // 眩晕效果
+                if (comboEffect.stun) {
+                    // 这里可以添加眩晕逻辑
+                    showNotification('敌人被眩晕!');
+                }
+                
+                // 重置连击序列
+                gameState.player1.skillSequence = [];
+                
+                // 更新UI
+                updateUI();
+                
+                // 检查游戏结束
+                checkGameEnd();
+            }
+        }
+
+        // 显示通知
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-lg text-lg font-bold z-50 animate-fade-in';
+            notification.textContent = message;
+            
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.classList.add('opacity-0', 'transition-opacity', 'duration-500');
+                setTimeout(() => {
+                    notification.remove();
+                }, 500);
+            }, 2000);
+        }
+
+        // 电脑攻击
+        function computerAttack() {
+            if (!gameState.isPlaying) return;
+            
+            const computerChar = characters[gameState.player2.character];
+            const availableSkills = [];
+            
+            // 选择可用技能
+            for (let i = 1; i <= 4; i++) {
+                const skill = computerChar.skills[i];
+                if (gameState.player2.energy >= skill.energy) {
+                    availableSkills.push(i);
+                }
+            }
+            
+            if (availableSkills.length === 0) return;
+            
+            // 随机选择技能
+            const skillId = availableSkills[Math.floor(Math.random() * availableSkills.length)];
+            const skill = computerChar.skills[skillId];
+            
+            // 消耗能量
+            gameState.player2.energy -= skill.energy;
+            
+            // 创建技能效果动画
+            const effect = document.createElement('div');
+            effect.className = 'absolute w-32 h-32 bg-secondary/30 rounded-full animate-skill-effect';
+            effect.style.left = '50%';
+            effect.style.top = '50%';
+            effect.style.transform = 'translate(-50%, -50%)';
+            
+            // 添加到玩家2角色
+            document.getElementById('player-2-character').appendChild(effect);
+            
+            // 移除效果
+            setTimeout(() => {
+                effect.remove();
+            }, 800);
+            
+            // 对玩家造成伤害
+            if (skill.damage > 0) {
+                // 显示伤害数字
+                showDamageNumber(gameState.player1.health - skill.damage, gameState.player1.health, 'player-1-character');
+                
+                // 应用伤害
+                gameState.player1.health = Math.max(0, gameState.player1.health - skill.damage);
+                
+                // 玩家受击动画
+                document.getElementById('player-1-character').classList.add('animate-shake');
+                setTimeout(() => {
+                    document.getElementById('player-1-character').classList.remove('animate-shake');
+                }, 500);
+            }
+            
+            // 治疗效果
+            if (skill.heal) {
+                // 显示治疗数字
+                showHealNumber(gameState.player2.health + skill.heal, gameState.player2.health, 'player-2-character');
+                
+                // 应用治疗
+                gameState.player2.health = Math.min(gameState.player2.maxHealth, gameState.player2.health + skill.heal);
+                
+                // 治疗动画
+                document.getElementById('player-2-character').classList.add('animate-glow');
+                setTimeout(() => {
+                    document.getElementById('player-2-character').classList.remove('animate-glow');
+                }, 1000);
+            }
+            
+            // 更新UI
+            updateUI();
+            
+            // 检查游戏结束
+            checkGameEnd();
+        }
+
+        // 检查游戏结束
+        function checkGameEnd() {
+            if (gameState.player1.health <= 0) {
+                endGame('player2');
+            } else if (gameState.player2.health <= 0) {
+                endGame('player1');
+            }
+        }
+
+        // 结束游戏
+        function endGame(winner) {
+            gameState.isPlaying = false;
+            
+            // 设置胜利者信息
+            const winnerText = document.getElementById('result-text');
+            const winnerIcon = document.getElementById('winner-icon');
+            
+            if (winner === 'player1') {
+                winnerText.textContent = '你赢了!';
+                winnerText.className = 'text-4xl font-bold mb-8 text-shadow-lg text-player-1';
+                winnerIcon.innerHTML = characters[gameState.player1.character].getIcon();
+            } else {
+                winnerText.textContent = '你输了!';
+                winnerText.className = 'text-4xl font-bold mb-8 text-shadow-lg text-player-2';
+                winnerIcon.innerHTML = characters[gameState.player2.character].getIcon();
+            }
+            
+            // 显示结束屏幕
+            gameScreen.classList.add('hidden');
+            endScreen.classList.remove('hidden');
+            
+            gameState.currentScreen = 'end';
+        }
+
+        // 重新开始游戏
+        function restartGame() {
+            // 重置游戏状态
+            gameState.selectedCharacter = null;
+            gameState.player1.combo = 0;
+            gameState.player1.skillSequence = [];
+            gameState.player2.combo = 0;
+            gameState.player2.skillSequence = [];
+            
+            // 重置UI
+            warriorSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
+            mageSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
+            startButton.disabled = true;
+            
+            // 切换到开始屏幕
+            endScreen.classList.add('hidden');
+            startScreen.classList.remove('hidden');
+            
+            gameState.currentScreen = 'start';
+        }
+
+        // 处理键盘事件
+        function handleKeyDown(event) {
+            if (!gameState.isPlaying) return;
+            
+            switch (event.key) {
+                case '1':
+                    useSkill(1);
+                    break;
+                case '2':
+                    useSkill(2);
+                    break;
+                case '3':
+                    useSkill(3);
+                    break;
+                case '4':
+                    useSkill(4);
+                    break;
+            }
+        }
+
+        // 设置虚拟摇杆
+        function setupJoystick() {
+            joystickOuter.addEventListener('mousedown', startJoystick);
+            joystickOuter.addEventListener('touchstart', startJoystick, { passive: false });
+            
+            document.addEventListener('mousemove', moveJoystick);
+            document.addEventListener('touchmove', moveJoystick, { passive: false });
+            
+            document.addEventListener('mouseup', endJoystick);
+            document.addEventListener('touchend', endJoystick);
+        }
+
+        // 开始摇杆操作
+        function startJoystick(event) {
+            event.preventDefault();
+            
+            const rect = joystickOuter.getBoundingClientRect();
+            const clientX = event.clientX || event.touches[0].clientX;
+            const clientY = event.clientY || event.touches[0].clientY;
+            
+            joystick.isActive = true;
+            joystick.startX = clientX - rect.left;
+            joystick.startY = clientY - rect.top;
+            joystick.currentX = joystick.startX;
+            joystick.currentY = joystick.startY;
+            
+            updateJoystickPosition();
+        }
+
+        // 移动摇杆
+        function moveJoystick(event) {
+            if (!joystick.isActive) return;
+            
+            event.preventDefault();
+            
+            const rect = joystickOuter.getBoundingClientRect();
+            const clientX = event.clientX || (event.touches ? event.touches[0].clientX : joystick.currentX);
+            const clientY = event.clientY || (event.touches ? event.touches[0].clientY : joystick.currentY);
+            
+            const deltaX = clientX - rect.left - joystick.startX;
+            const deltaY = clientY - rect.top - joystick.startY;
+            
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = joystick.maxDistance;
+            
+            if (distance <= maxDistance) {
+                joystick.currentX = joystick.startX + deltaX;
+                joystick.currentY = joystick.startY + deltaY;
+            } else {
+                const ratio = maxDistance / distance;
+                joystick.currentX = joystick.startX + deltaX * ratio;
+                joystick.currentY = joystick.startY + deltaY * ratio;
+            }
+            
+            updateJoystickPosition();
+            
+            // 处理角色移动
+            if (gameState.isPlaying) {
+                const normalizedX = (joystick.currentX - joystick.startX) / maxDistance;
+                const normalizedY = (joystick.currentY - joystick.startY) / maxDistance;
+                
+                // 更新玩家位置
+                gameState.player1.position.x = Math.max(-200, Math.min(200, gameState.player1.position.x + normalizedX * 5));
+                gameState.player1.position.y = Math.max(-100, Math.min(100, gameState.player1.position.y + normalizedY * 5));
+                
+                // 更新UI
+                const playerElement = document.getElementById('player-1-character');
+                playerElement.style.transform = `translate(${gameState.player1.position.x}px, ${gameState.player1.position.y}px)`;
+            }
+        }
+
+        // 结束摇杆操作
+        function endJoystick() {
+            if (!joystick.isActive) return;
+            
+            joystick.isActive = false;
+            joystick.currentX = joystick.startX;
+            joystick.currentY = joystick.startY;
+            
+            updateJoystickPosition();
+        }
+
+        // 更新摇杆位置
+        function updateJoystickPosition() {
+            joystickInner.style.transform = `translate(${joystick.currentX - joystick.startX}px, ${joystick.currentY - joystick.startY}px)`;
+        }
+
+        // 游戏主循环
+        function updateGame(timestamp) {
+            if (gameState.isPlaying) {
+                const deltaTime = timestamp - gameState.lastUpdateTime;
+                gameState.lastUpdateTime = timestamp;
+                
+                // 更新技能冷却
+                updateCooldowns(deltaTime);
+                
+                // 恢复能量
+                gameState.player1.energy = Math.min(gameState.player1.maxEnergy, gameState.player1.energy + deltaTime * 0.01);
+                gameState.player2.energy = Math.min(gameState.player2.maxEnergy, gameState.player2.energy + deltaTime * 0.01);
+                
+                // 更新UI
+                updateUI();
+            }
+            
+            window.requestAnimationFrame(updateGame);
+        }
+
+        // 更新技能冷却
+        function updateCooldowns(deltaTime) {
+            for (let i = 1; i <= 4; i++) {
+                if (skillCooldowns[i] > 0) {
+                    skillCooldowns[i] = Math.max(0, skillCooldowns[i] - deltaTime);
+                    
+                    const skillIcon = document.querySelector(`.skill-icon[data-skill="${i}"]`);
+                    const cooldownMask = skillIcon.querySelector('.cooldown-mask');
+                    const playerChar = characters[gameState.player1.character];
+                    const cooldown = playerChar.skills[i].cooldown;
+                    
+                    const cooldownPercentage = (skillCooldowns[i] / cooldown) * 100;
+                    cooldownMask.style.height = `${cooldownPercentage}%`;
+                    
+                    if (skillCooldowns[i] === 0) {
+                        skillIcon.classList.remove('on-cooldown');
+                    }
+                }
+            }
+        }
+
+        // 初始化游戏
+        window.addEventListener('DOMContentLoaded', initGame);
+    </script>
+</body>
+</html>
