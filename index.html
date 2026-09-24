@@ -1,1073 +1,432 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Battle Arena - 1v1 ¶ÔÕ½ÓÎÏ·</title>
-    <!-- Tailwind CSS v3 -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Font Awesome -->
-    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
-    <!-- Í³Ò»µÄ Tailwind ÅäÖÃ -->
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#3B82F6', // À¶É«
-                        secondary: '#F97316', // ³ÈÉ«
-                        background: '#0F172A',
-                        'player-1': '#3B82F6',
-                        'player-2': '#F97316',
-                        'health-bar': '#10B981',
-                        'energy-bar': '#8B5CF6',
-                        'cooldown-overlay': 'rgba(0, 0, 0, 0.7)'
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', 'sans-serif'],
-                    },
-                    animation: {
-                        'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                        'shake': 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both',
-                        'glow': 'glow 1.5s ease-in-out infinite alternate',
-                        'slide-in': 'slideIn 0.5s ease-out forwards',
-                        'fade-in': 'fadeIn 0.5s ease-out forwards',
-                        'skill-effect': 'skillEffect 0.8s ease-out forwards',
-                    },
-                    keyframes: {
-                        shake: {
-                            '10%, 90%': { transform: 'translate3d(-1px, 0, 0)' },
-                            '20%, 80%': { transform: 'translate3d(2px, 0, 0)' },
-                            '30%, 50%, 70%': { transform: 'translate3d(-4px, 0, 0)' },
-                            '40%, 60%': { transform: 'translate3d(4px, 0, 0)' }
-                        },
-                        glow: {
-                            '0%': { filter: 'brightness(1) drop-shadow(0 0 5px rgba(59, 130, 246, 0.5))' },
-                            '100%': { filter: 'brightness(1.2) drop-shadow(0 0 15px rgba(59, 130, 246, 0.8))' }
-                        },
-                        slideIn: {
-                            '0%': { transform: 'translateX(-100%)', opacity: 0 },
-                            '100%': { transform: 'translateX(0)', opacity: 1 }
-                        },
-                        fadeIn: {
-                            '0%': { opacity: 0 },
-                            '100%': { opacity: 1 }
-                        },
-                        skillEffect: {
-                            '0%': { transform: 'scale(0.5)', opacity: 0 },
-                            '50%': { transform: 'scale(1.2)', opacity: 1 },
-                            '100%': { transform: 'scale(1)', opacity: 1 }
-                        }
-                    }
-                }
-            }
-        }
-    </script>
-    <style type="text/tailwindcss">
-        @layer utilities {
-            .text-shadow {
-                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-            }
-            .text-shadow-lg {
-                text-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
-            }
-            .character-shadow {
-                filter: drop-shadow(0 10px 8px rgb(0 0 0 / 0.4));
-            }
-            .skill-icon {
-                @apply relative w-16 h-16 rounded-full bg-gray-800 border-2 border-gray-700 overflow-hidden cursor-pointer transition-all duration-200;
-            }
-            .skill-icon:hover:not(.on-cooldown) {
-                @apply scale-110 border-primary shadow-lg shadow-primary/30;
-            }
-            .skill-icon.on-cooldown {
-                @apply cursor-not-allowed opacity-80;
-            }
-            .cooldown-mask {
-                @apply absolute bottom-0 left-0 bg-cooldown-overlay transition-all duration-1000 ease-linear;
-            }
-            .health-bar, .energy-bar {
-                @apply h-full rounded-full transition-all duration-300 ease-out;
-            }
-            .joystick-outer {
-                @apply absolute bottom-20 left-8 w-32 h-32 rounded-full bg-gray-800/50 border-2 border-gray-700 touch-none;
-            }
-            .joystick-inner {
-                @apply absolute top-1/2 left-1/2 w-16 h-16 rounded-full bg-primary/80 transform -translate-x-1/2 -translate-y-1/2 transition-transform duration-150 ease-out;
-            }
-            .floating-text {
-                @apply absolute text-white font-bold text-shadow-lg pointer-events-none;
-                animation: floatText 2s ease-out forwards;
-            }
-            @keyframes floatText {
-                0% { opacity: 1; transform: translateY(0); }
-                100% { opacity: 0; transform: translateY(-50px); }
-            }
-            .combo-indicator {
-                @apply absolute -top-12 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-3 py-1 rounded-full text-lg font-bold opacity-0 transition-opacity duration-300;
-            }
-            .combo-indicator.show {
-                @apply opacity-100;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ç§‘åˆ›é¡¹ç›®å°åŠ©æ‰‹</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; background:#f4f7fb; margin:0; padding:20px; color:#333; }
+  h1 { color:#2a6df4; text-align:center; }
+  h2 { color:#2a6df4; }
+  h3 { margin-top:20px; border-left:4px solid #2a6df4; padding-left:8px; }
+  .card { background:#fff; border-radius:10px; padding:12px; margin:10px 0; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  .box { background:#fff; border-radius:10px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.1); }
+  input, select, textarea, button { font-size:14px; padding:8px; margin:4px 2px; border-radius:6px; border:1px solid #ccc; }
+  textarea { width:95%; min-height:60px; }
+  button { background:#2a6df4; color:#fff; border:none; cursor:pointer; }
+  button:hover { background:#1b4fc0; }
+  .tag { background:#e6f0ff; color:#2a6df4; border-radius:6px; padding:2px 8px; font-size:12px; }
+  .bar { background:#e6e6e6; border-radius:6px; height:12px; margin:8px 0; }
+  .fill { background:#4caf50; height:12px; border-radius:6px; }
+  .stage { display:block; padding:6px; margin:4px 0; background:#f0f4fa; border-radius:6px; cursor:pointer; }
+  .stage.done { background:#dff5e1; text-decoration:line-through; color:#4caf50; }
+  .rec, .rev { background:#f7f9fc; border-radius:6px; padding:8px; margin:6px 0; }
+  .rec img { max-width:160px; display:block; margin-top:6px; border-radius:6px; }
+  .rec small { color:#999; }
+  .ab { display:inline-block; margin-right:10px; }
+  .ab input { width:55px; }
+  #detail { margin-top:20px; }
+</style>
 </head>
-<body class="bg-background text-white overflow-hidden h-screen">
-    <!-- ÓÎÏ·ÈİÆ÷ -->
-    <div id="game-container" class="relative w-full h-screen flex flex-col">
-        <!-- ¿ªÊ¼ÆÁÄ» -->
-        <div id="start-screen" class="absolute inset-0 bg-background flex flex-col items-center justify-center z-50">
-            <h1 class="text-5xl md:text-7xl font-bold mb-8 text-center text-shadow-lg">
-                <span class="text-player-1">Battle</span> <span class="text-player-2">Arena</span>
-            </h1>
-            <div class="flex flex-col md:flex-row gap-8 mb-12">
-                <div id="warrior-selection" class="character-selection cursor-pointer transform transition-transform hover:scale-105">
-                    <div class="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-transparent hover:border-player-1 flex items-center justify-center bg-gray-900">
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-500">
-                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                                <rect x="40" y="20" width="20" height="60" fill="#1e40af" />
-                                <path d="M30 40 L70 40 L60 80 L40 80 Z" fill="#3b82f6" />
-                                <circle cx="50" cy="30" r="15" fill="#1e40af" />
-                                <path d="M35 20 L65 20 L60 10 L40 10 Z" fill="#3b82f6" />
-                                <path d="M20 50 L30 50 L35 70 L15 70 Z" fill="#3b82f6" />
-                                <path d="M70 50 L80 50 L85 70 L65 70 Z" fill="#3b82f6" />
-                            </svg>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-bold mt-4 text-center">Õ½Ê¿</h3>
-                    <p class="text-gray-400 text-center">½üÕ½Ì¹¿Ë£¬¸ß·ÀÓù</p>
-                </div>
-                <div id="mage-selection" class="character-selection cursor-pointer transform transition-transform hover:scale-105">
-                    <div class="w-48 h-48 md:w-64 md:h-64 rounded-full overflow-hidden border-4 border-transparent hover:border-player-2 flex items-center justify-center bg-gray-900">
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-700 to-orange-500">
-                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                                <path d="M30 40 C30 20 70 20 70 40 L75 80 L25 80 Z" fill="#ea580c" />
-                                <path d="M40 20 C40 10 60 10 60 20 C60 25 40 25 40 20 Z" fill="#f97316" />
-                                <circle cx="50" cy="30" r="10" fill="#f97316" />
-                                <path d="M45 40 L55 40 L55 70 L45 70 Z" fill="#fdba74" />
-                                <path d="M35 50 L45 50 L40 60 L30 55 Z" fill="#f97316" />
-                                <path d="M55 50 L65 50 L70 55 L60 60 Z" fill="#f97316" />
-                                <path d="M45 15 L55 15 L50 5 Z" fill="#f97316" />
-                            </svg>
-                        </div>
-                    </div>
-                    <h3 class="text-xl font-bold mt-4 text-center">·¨Ê¦</h3>
-                    <p class="text-gray-400 text-center">Ô¶³ÌÊä³ö£¬¸ß±¬·¢</p>
-                </div>
-            </div>
-            <button id="start-button" class="px-8 py-4 bg-gradient-to-r from-player-1 to-player-2 rounded-full text-xl font-bold hover:shadow-lg hover:shadow-primary/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed" disabled>
-                ¿ªÊ¼ÓÎÏ·
-            </button>
-        </div>
+<body>
 
-        <!-- ÓÎÏ·½çÃæ -->
-        <div id="game-screen" class="relative w-full h-full hidden">
-            <!-- Õ½¶·±³¾° -->
-            <div class="absolute inset-0 z-0 bg-gradient-to-b from-gray-900 to-gray-800">
-                <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(59,130,246,0.1),transparent_70%)]"></div>
-                <div class="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/50 to-transparent"></div>
-                <!-- ×°ÊÎĞÔÔªËØ -->
-                <div class="absolute top-1/4 left-1/4 w-32 h-32 rounded-full bg-primary/10 blur-3xl"></div>
-                <div class="absolute top-1/3 right-1/4 w-48 h-48 rounded-full bg-secondary/10 blur-3xl"></div>
-                <div class="absolute bottom-1/4 left-1/3 w-40 h-40 rounded-full bg-purple-500/10 blur-3xl"></div>
-            </div>
+<h1>ç§‘åˆ›é¡¹ç›®å°åŠ©æ‰‹</h1>
 
-            <!-- Íæ¼ÒĞÅÏ¢Çø -->
-            <div class="absolute top-4 left-4 right-4 flex justify-between z-10">
-                <!-- Íæ¼Ò1ĞÅÏ¢ -->
-                <div class="player-info flex flex-col w-1/3">
-                    <div class="flex items-center mb-2">
-                        <div class="w-10 h-10 rounded-full overflow-hidden mr-2 border-2 border-player-1">
-                            <img id="player-1-avatar" src="" alt="Íæ¼Ò1" class="w-full h-full object-cover">
-                        </div>
-                        <h3 id="player-1-name" class="font-bold">Íæ¼Ò1</h3>
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        <div class="relative w-full h-6 bg-gray-800 rounded-full overflow-hidden">
-                            <div id="player-1-health" class="health-bar bg-health-bar" style="width: 100%"></div>
-                            <span id="player-1-health-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
-                        </div>
-                        <div class="relative w-full h-4 bg-gray-800 rounded-full overflow-hidden">
-                            <div id="player-1-energy" class="energy-bar bg-energy-bar" style="width: 100%"></div>
-                            <span id="player-1-energy-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
-                        </div>
-                    </div>
-                </div>
+<!-- æ–°å»ºé¡¹ç›® -->
+<div class="box">
+  <h3>æ–°å»ºé¡¹ç›®</h3>
+  <input id="pname" placeholder="é¡¹ç›®åå­—ï¼Œæ¯”å¦‚ï¼šè‡ªåŠ¨æµ‡èŠ±è£…ç½®">
+  <select id="ptheme">
+    <option>æœªæ¥å·¥å‚</option>
+    <option>æ™ºæ…§åŸå¸‚</option>
+    <option>ç”Ÿå‘½ç›’å­</option>
+    <option>è‡ªç„¶å…¬ç¤¾</option>
+    <option>å¤ªç©ºç å¤´</option>
+  </select>
+  <input id="pmembers" placeholder="å°ç»„æˆå‘˜ï¼Œç”¨é€—å·éš”å¼€">
+  <button onclick="addProject()">åˆ›å»ºé¡¹ç›®</button>
+</div>
 
-                <!-- ¶ÔÕ½Ö¸Ê¾Æ÷ -->
-                <div class="flex items-center justify-center">
-                    <div class="px-4 py-2 bg-black/50 rounded-full text-lg font-bold">VS</div>
-                </div>
+<!-- é¡¹ç›®åˆ—è¡¨ / è¿›åº¦çœ‹æ¿ -->
+<h3>æˆ‘çš„é¡¹ç›®ï¼ˆè¿›åº¦çœ‹æ¿ï¼‰</h3>
+<div id="list"></div>
 
-                <!-- Íæ¼Ò2ĞÅÏ¢ -->
-                <div class="player-info flex flex-col items-end w-1/3">
-                    <div class="flex items-center mb-2">
-                        <h3 id="player-2-name" class="font-bold">Íæ¼Ò2</h3>
-                        <div class="w-10 h-10 rounded-full overflow-hidden ml-2 border-2 border-player-2">
-                            <img id="player-2-avatar" src="" alt="Íæ¼Ò2" class="w-full h-full object-cover">
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-2 w-full">
-                        <div class="relative w-full h-6 bg-gray-800 rounded-full overflow-hidden">
-                            <div id="player-2-health" class="health-bar bg-health-bar" style="width: 100%"></div>
-                            <span id="player-2-health-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
-                        </div>
-                        <div class="relative w-full h-4 bg-gray-800 rounded-full overflow-hidden">
-                            <div id="player-2-energy" class="energy-bar bg-energy-bar" style="width: 100%"></div>
-                            <span id="player-2-energy-text" class="absolute inset-0 flex items-center justify-center text-xs font-bold">100/100</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
+<!-- é¡¹ç›®è¯¦æƒ… -->
+<div id="detail"></div>
 
-            <!-- Õ½¶·ÇøÓò -->
-            <div class="absolute inset-0 flex items-center justify-between px-16 z-20">
-                <!-- Íæ¼Ò1½ÇÉ« -->
-                <div id="player-1-character" class="character-container relative flex flex-col items-center">
-                    <div class="combo-indicator" id="player-1-combo">Á¬»÷: 0</div>
-                    <div class="character-shadow animate-fade-in">
-                        <img id="player-1-sprite" src="" alt="Íæ¼Ò1½ÇÉ«" class="w-48 h-48 object-contain">
-                    </div>
-                </div>
+<script>
+// ---------- æ•°æ® ----------
+var projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
+var currentId = null;
 
-                <!-- Íæ¼Ò2½ÇÉ« -->
-                <div id="player-2-character" class="character-container relative flex flex-col items-center">
-                    <div class="combo-indicator" id="player-2-combo">Á¬»÷: 0</div>
-                    <div class="character-shadow animate-fade-in">
-                        <img id="player-2-sprite" src="" alt="Íæ¼Ò2½ÇÉ«" class="w-48 h-48 object-contain">
-                    </div>
-                </div>
-            </div>
+var THEMES = ['æœªæ¥å·¥å‚','æ™ºæ…§åŸå¸‚','ç”Ÿå‘½ç›’å­','è‡ªç„¶å…¬ç¤¾','å¤ªç©ºç å¤´'];
+var STAGES = ['æå‡ºé—®é¢˜','è®¾è®¡æ–¹æ¡ˆ','è®°å½•æ•°æ®','åˆ†æç»“è®º','æˆæœå±•ç¤º'];
+var ABILITIES = ['æ¢ç©¶','åä½œ','åˆ›æ–°','è¡¨è¾¾'];
 
-            <!-- ¼¼ÄÜÀ¸ -->
-            <div class="absolute bottom-4 left-0 right-0 flex justify-center gap-4 z-30">
-                <div class="skill-bar flex gap-3 bg-black/50 p-3 rounded-xl">
-                    <div class="skill-icon" data-skill="1">
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-green-600 to-green-400">
-                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                                <path d="M30 30 L70 70 M30 70 L70 30" stroke="white" stroke-width="8" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <div class="cooldown-mask" style="height: 0%"></div>
-                    </div>
-                    <div class="skill-icon" data-skill="2">
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-yellow-600 to-yellow-400">
-                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                                <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="8" />
-                                <path d="M50 20 L50 35 M50 65 L50 80 M20 50 L35 50 M65 50 L80 50" stroke="white" stroke-width="8" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <div class="cooldown-mask" style="height: 0%"></div>
-                    </div>
-                    <div class="skill-icon" data-skill="3">
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-600 to-blue-400">
-                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                                <path d="M20 50 C40 30 60 70 80 50" stroke="white" stroke-width="8" fill="none" />
-                                <circle cx="20" cy="50" r="8" fill="white" />
-                                <circle cx="80" cy="50" r="8" fill="white" />
-                            </svg>
-                        </div>
-                        <div class="cooldown-mask" style="height: 0%"></div>
-                    </div>
-                    <div class="skill-icon ultimate" data-skill="4">
-                        <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-600 to-purple-400">
-                            <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                                <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="8" />
-                                <circle cx="50" cy="50" r="15" fill="white" />
-                                <circle cx="50" cy="50" r="5" fill="purple" />
-                                <path d="M50 10 L50 20 M50 80 L50 90 M10 50 L20 50 M80 50 L90 50" stroke="white" stroke-width="6" stroke-linecap="round" />
-                            </svg>
-                        </div>
-                        <div class="cooldown-mask" style="height: 0%"></div>
-                    </div>
-                </div>
-            </div>
+function save() {
+  localStorage.setItem('ctProjects', JSON.stringify(projects));
+}
 
-            <!-- ĞéÄâÒ¡¸Ë -->
-            <div class="joystick-outer" id="joystick-outer">
-                <div class="joystick-inner" id="joystick-inner"></div>
-            </div>
-        </div>
+function findProject(id) {
+  for (var i = 0; i < projects.length; i++) {
+    if (projects[i].id === id) return projects[i];
+  }
+  return null;
+}
 
-        <!-- ÓÎÏ·½áÊøÆÁÄ» -->
-        <div id="end-screen" class="absolute inset-0 bg-background/90 flex flex-col items-center justify-center z-50 hidden">
-            <h2 id="result-text" class="text-4xl font-bold mb-8 text-shadow-lg">Õ½¶·½áÊø!</h2>
-            <div id="winner-display" class="w-48 h-48 rounded-full overflow-hidden border-4 border-primary mb-8 flex items-center justify-center">
-                <div id="winner-icon" class="w-full h-full flex items-center justify-center">
-                    <!-- Ê¤ÀûÕßÍ¼±ê½«Í¨¹ıJS¶¯Ì¬ÉèÖÃ -->
-                </div>
-            </div>
-            <button id="restart-button" class="px-8 py-4 bg-gradient-to-r from-player-1 to-player-2 rounded-full text-xl font-bold hover:shadow-lg hover:shadow-primary/30 transition-all">
-                ÔÙÀ´Ò»¾Ö
-            </button>
-        </div>
-    </div>
+function escapeHtml(s) {
+  return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
-    <script>
-        // ÓÎÏ·×´Ì¬
-        const gameState = {
-            currentScreen: 'start',
-            selectedCharacter: null,
-            player1: {
-                name: 'Íæ¼Ò1',
-                character: null,
-                health: 100,
-                maxHealth: 100,
-                energy: 100,
-                maxEnergy: 100,
-                position: { x: 100, y: 0 },
-                combo: 0,
-                lastSkillTime: 0,
-                skillSequence: []
-            },
-            player2: {
-                name: 'Íæ¼Ò2',
-                character: null,
-                health: 100,
-                maxHealth: 100,
-                energy: 100,
-                maxEnergy: 100,
-                position: { x: -100, y: 0 },
-                combo: 0,
-                lastSkillTime: 0,
-                skillSequence: []
-            },
-            isPlaying: false,
-            gameLoop: null,
-            lastUpdateTime: 0
-        };
+// ---------- ç”»èƒ½åŠ›é›·è¾¾å›¾ï¼ˆç”¨ SVGï¼Œä¸ç”¨è£…ä»»ä½•æ’ä»¶ï¼‰ ----------
+function radarSVG(values, size) {
+  var cx = size / 2, cy = size / 2, r = size / 2 - 28;
+  var n = values.length;
+  var s = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
 
-        // ½ÇÉ«Êı¾İ
-        const characters = {
-            warrior: {
-                name: 'Õ½Ê¿',
-                color: 'blue',
-                health: 150,
-                energy: 100,
-                skills: {
-                    1: { name: 'ÃÍ»÷', damage: 20, energy: 15, cooldown: 2000, combo: true },
-                    2: { name: '¶ÜÅÆ¸ñµ²', damage: 0, energy: 20, cooldown: 5000, heal: 15, combo: false },
-                    3: { name: 'Ğı·çÕ¶', damage: 30, energy: 30, cooldown: 4000, combo: true },
-                    4: { name: 'Ó¢ÓÂ´ò»÷', damage: 50, energy: 50, cooldown: 10000, combo: false }
-                },
-                comboEffects: {
-                    '1-3': { name: 'ÖÂÃüÁ¬»÷', damage: 15, energy: 0 },
-                    '3-1': { name: 'Ğı·çÃÍ»÷', damage: 10, stun: true }
-                },
-                getIcon: () => `
-                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-700 to-blue-500">
-                        <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                            <rect x="40" y="20" width="20" height="60" fill="#1e40af" />
-                            <path d="M30 40 L70 40 L60 80 L40 80 Z" fill="#3b82f6" />
-                            <circle cx="50" cy="30" r="15" fill="#1e40af" />
-                            <path d="M35 20 L65 20 L60 10 L40 10 Z" fill="#3b82f6" />
-                            <path d="M20 50 L30 50 L35 70 L15 70 Z" fill="#3b82f6" />
-                            <path d="M70 50 L80 50 L85 70 L65 70 Z" fill="#3b82f6" />
-                        </svg>
-                    </div>
-                `
-            },
-            mage: {
-                name: '·¨Ê¦',
-                color: 'orange',
-                health: 100,
-                energy: 150,
-                skills: {
-                    1: { name: '»ğÇòÊõ', damage: 25, energy: 20, cooldown: 1500, combo: true },
-                    2: { name: '±ùËªĞÂĞÇ', damage: 15, energy: 25, cooldown: 3000, slow: true, combo: true },
-                    3: { name: 'ÉÁµçÁ´', damage: 35, energy: 35, cooldown: 3500, combo: true },
-                    4: { name: '°ÂÊõ±¬Õ¨', damage: 60, energy: 60, cooldown: 8000, combo: false }
-                },
-                comboEffects: {
-                    '1-2': { name: '±ù»ğ½»ÈÚ', damage: 20, energy: 5 },
-                    '2-3': { name: 'ÔªËØ·ç±©', damage: 25, energy: 10 }
-                },
-                getIcon: () => `
-                    <div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-700 to-orange-500">
-                        <svg viewBox="0 0 100 100" class="w-3/4 h-3/4">
-                            <path d="M30 40 C30 20 70 20 70 40 L75 80 L25 80 Z" fill="#ea580c" />
-                            <path d="M40 20 C40 10 60 10 60 20 C60 25 40 25 40 20 Z" fill="#f97316" />
-                            <circle cx="50" cy="30" r="10" fill="#f97316" />
-                            <path d="M45 40 L55 40 L55 70 L45 70 Z" fill="#fdba74" />
-                            <path d="M35 50 L45 50 L40 60 L30 55 Z" fill="#f97316" />
-                            <path d="M55 50 L65 50 L70 55 L60 60 Z" fill="#f97316" />
-                            <path d="M45 15 L55 15 L50 5 Z" fill="#f97316" />
-                        </svg>
-                    </div>
-                `
-            }
-        };
+  // ä¸€åœˆä¸€åœˆçš„ç½‘æ ¼
+  for (var level = 2; level <= 10; level += 2) {
+    var pts = [];
+    for (var i = 0; i < n; i++) {
+      var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+      var rr = r * level / 10;
+      pts.push((cx + rr * Math.cos(ang)).toFixed(1) + ',' + (cy + rr * Math.sin(ang)).toFixed(1));
+    }
+    s += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="#dde6f5"/>';
+  }
+  // ä»ä¸­å¿ƒå‡ºå»çš„è½´çº¿
+  for (var i = 0; i < n; i++) {
+    var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+    s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + r * Math.cos(ang)).toFixed(1) +
+         '" y2="' + (cy + r * Math.sin(ang)).toFixed(1) + '" stroke="#dde6f5"/>';
+  }
+  // æ•°æ®å›´æˆçš„å½¢çŠ¶
+  var dpts = [];
+  for (var i = 0; i < n; i++) {
+    var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+    var v = Math.max(0, Math.min(10, Number(values[i]) || 0));
+    var rr = r * v / 10;
+    dpts.push((cx + rr * Math.cos(ang)).toFixed(1) + ',' + (cy + rr * Math.sin(ang)).toFixed(1));
+  }
+  s += '<polygon points="' + dpts.join(' ') + '" fill="rgba(42,109,244,0.25)" stroke="#2a6df4" stroke-width="2"/>';
+  // å››ä¸ªç»´åº¦çš„åå­—
+  for (var i = 0; i < n; i++) {
+    var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
+    var lx = cx + (r + 15) * Math.cos(ang);
+    var ly = cy + (r + 15) * Math.sin(ang);
+    s += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) +
+         '" font-size="12" fill="#333" text-anchor="middle" dominant-baseline="middle">' + ABILITIES[i] + '</text>';
+  }
+  s += '</svg>';
+  return s;
+}
 
-        // ¼¼ÄÜÀäÈ´×´Ì¬
-        let skillCooldowns = {
-            1: 0,
-            2: 0,
-            3: 0,
-            4: 0
-        };
+// ---------- æ–°å»ºé¡¹ç›® ----------
+function addProject() {
+  var name = document.getElementById('pname').value.trim();
+  var theme = document.getElementById('ptheme').value;
+  var members = document.getElementById('pmembers').value.trim();
+  if (!name) { alert('è¯·å…ˆå†™é¡¹ç›®åå­—'); return; }
 
-        // ĞéÄâÒ¡¸Ë×´Ì¬
-        const joystick = {
-            isActive: false,
-            startX: 0,
-            startY: 0,
-            currentX: 0,
-            currentY: 0,
-            maxDistance: 60
-        };
+  var stageList = [];
+  for (var i = 0; i < STAGES.length; i++) {
+    stageList.push({ name: STAGES[i], done: false });
+  }
 
-        // DOM ÔªËØ
-        const startScreen = document.getElementById('start-screen');
-        const gameScreen = document.getElementById('game-screen');
-        const endScreen = document.getElementById('end-screen');
-        const startButton = document.getElementById('start-button');
-        const restartButton = document.getElementById('restart-button');
-        const warriorSelection = document.getElementById('warrior-selection');
-        const mageSelection = document.getElementById('mage-selection');
-        const joystickOuter = document.getElementById('joystick-outer');
-        const joystickInner = document.getElementById('joystick-inner');
-        const skillIcons = document.querySelectorAll('.skill-icon');
+  projects.push({
+    id: Date.now(),
+    name: name,
+    theme: theme,
+    members: members ? members.split(/[,ï¼Œã€\s]+/) : [],
+    stages: stageList,
+    records: [],
+    reviews: [],
+    mentor: '',
+    ability: [4, 4, 4, 4]
+  });
 
-        // ³õÊ¼»¯ÓÎÏ·
-        function initGame() {
-            // ½ÇÉ«Ñ¡ÔñÊÂ¼ş
-            warriorSelection.addEventListener('click', () => selectCharacter('warrior'));
-            mageSelection.addEventListener('click', () => selectCharacter('mage'));
-            
-            // ¿ªÊ¼ÓÎÏ·°´Å¥
-            startButton.addEventListener('click', startGame);
-            
-            // ÖØĞÂ¿ªÊ¼°´Å¥
-            restartButton.addEventListener('click', restartGame);
-            
-            // ¼¼ÄÜ°´Å¥ÊÂ¼ş
-            skillIcons.forEach(icon => {
-                icon.addEventListener('click', () => {
-                    const skillId = parseInt(icon.dataset.skill);
-                    if (!icon.classList.contains('on-cooldown')) {
-                        useSkill(skillId);
-                    }
-                });
-            });
-            
-            // ¼üÅÌÊÂ¼ş
-            document.addEventListener('keydown', handleKeyDown);
-            
-            // ĞéÄâÒ¡¸ËÊÂ¼ş
-            setupJoystick();
-            
-            // ³õÊ¼»¯ÓÎÏ·Ñ­»·
-            window.requestAnimationFrame(updateGame);
-        }
+  document.getElementById('pname').value = '';
+  document.getElementById('pmembers').value = '';
+  save();
+  render();
+}
 
-        // ½ÇÉ«Ñ¡Ôñ
-        function selectCharacter(characterType) {
-            // ÖØÖÃÖ®Ç°µÄÑ¡Ôñ
-            warriorSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
-            mageSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
-            
-            // ÉèÖÃĞÂÑ¡Ôñ
-            gameState.selectedCharacter = characterType;
-            
-            // ÊÓ¾õ·´À¡
-            if (characterType === 'warrior') {
-                warriorSelection.querySelector('div').classList.add('border-player-1');
-            } else {
-                mageSelection.querySelector('div').classList.add('border-player-2');
-            }
-            
-            // ÆôÓÃ¿ªÊ¼°´Å¥
-            startButton.disabled = false;
-        }
+// ---------- æ˜¾ç¤ºé¡¹ç›®åˆ—è¡¨ ----------
+function render() {
+  var list = document.getElementById('list');
+  list.innerHTML = '';
+  if (projects.length === 0) {
+    list.innerHTML = '<p>è¿˜æ²¡æœ‰é¡¹ç›®ï¼Œå…ˆåœ¨ä¸Šé¢æ–°å»ºä¸€ä¸ªå§ã€‚</p>';
+    return;
+  }
+  for (var i = 0; i < projects.length; i++) {
+    var p = projects[i];
+    var done = 0;
+    for (var j = 0; j < p.stages.length; j++) if (p.stages[j].done) done++;
 
-        // ¿ªÊ¼ÓÎÏ·
-        function startGame() {
-            // ÉèÖÃÍæ¼Ò½ÇÉ«
-            gameState.player1.character = gameState.selectedCharacter;
-            
-            // µçÄÔËæ»úÑ¡ÔñÁíÒ»¸ö½ÇÉ«
-            gameState.player2.character = gameState.selectedCharacter === 'warrior' ? 'mage' : 'warrior';
-            
-            // ³õÊ¼»¯Íæ¼ÒÊôĞÔ
-            const player1Char = characters[gameState.player1.character];
-            const player2Char = characters[gameState.player2.character];
-            
-            gameState.player1.health = gameState.player1.maxHealth = player1Char.health;
-            gameState.player1.energy = gameState.player1.maxEnergy = player1Char.energy;
-            
-            gameState.player2.health = gameState.player2.maxHealth = player2Char.health;
-            gameState.player2.energy = gameState.player2.maxEnergy = player2Char.energy;
-            
-            // ¸üĞÂUI
-            updateUI();
-            
-            // ÇĞ»»µ½ÓÎÏ·ÆÁÄ»
-            startScreen.classList.add('hidden');
-            gameScreen.classList.remove('hidden');
-            
-            // ÉèÖÃÓÎÏ·×´Ì¬
-            gameState.currentScreen = 'game';
-            gameState.isPlaying = true;
-            gameState.lastUpdateTime = performance.now();
-            
-            // ÖØÖÃ¼¼ÄÜÀäÈ´
-            resetCooldowns();
-        }
+    var div = document.createElement('div');
+    div.className = 'card';
+    div.innerHTML =
+      '<b>' + escapeHtml(p.name) + '</b> <span class="tag">' + p.theme + '</span>' +
+      '<div class="bar"><div class="fill" style="width:' + (done / STAGES.length * 100) + '%"></div></div>' +
+      '<small>è¿›åº¦ ' + done + '/' + STAGES.length + '</small><br>' +
+      '<button onclick="openProject(' + p.id + ')">æ‰“å¼€</button>' +
+      '<button onclick="delProject(' + p.id + ')">åˆ é™¤</button>';
+    list.appendChild(div);
+  }
+}
 
-        // ÖØÖÃ¼¼ÄÜÀäÈ´
-        function resetCooldowns() {
-            skillCooldowns = {
-                1: 0,
-                2: 0,
-                3: 0,
-                4: 0
-            };
-            
-            // ¸üĞÂUI
-            skillIcons.forEach(icon => {
-                icon.classList.remove('on-cooldown');
-                icon.querySelector('.cooldown-mask').style.height = '0%';
-            });
-        }
+// ---------- æ‰“å¼€é¡¹ç›®è¯¦æƒ… ----------
+function openProject(id) {
+  currentId = id;
+  renderDetail();
+  document.getElementById('detail').scrollIntoView();
+}
 
-        // ¸üĞÂUI
-        function updateUI() {
-            // ¸üĞÂÍæ¼Ò1ĞÅÏ¢
-            document.getElementById('player-1-name').textContent = gameState.player1.name;
-            
-            // ÉèÖÃÍæ¼Ò1Í·Ïñ
-            const player1Avatar = document.getElementById('player-1-avatar');
-            player1Avatar.innerHTML = characters[gameState.player1.character].getIcon();
-            player1Avatar.classList.add('flex', 'items-center', 'justify-center');
-            
-            // ÉèÖÃÍæ¼Ò1½ÇÉ«Í¼±ê
-            const player1Sprite = document.getElementById('player-1-sprite');
-            player1Sprite.innerHTML = characters[gameState.player1.character].getIcon();
-            player1Sprite.classList.add('flex', 'items-center', 'justify-center');
-            player1Sprite.style.width = '100%';
-            player1Sprite.style.height = '100%';
-            
-            document.getElementById('player-1-health').style.width = `${(gameState.player1.health / gameState.player1.maxHealth) * 100}%`;
-            document.getElementById('player-1-health-text').textContent = `${Math.round(gameState.player1.health)}/${gameState.player1.maxHealth}`;
-            
-            document.getElementById('player-1-energy').style.width = `${(gameState.player1.energy / gameState.player1.maxEnergy) * 100}%`;
-            document.getElementById('player-1-energy-text').textContent = `${Math.round(gameState.player1.energy)}/${gameState.player1.maxEnergy}`;
-            
-            // ¸üĞÂÍæ¼Ò2ĞÅÏ¢
-            document.getElementById('player-2-name').textContent = gameState.player2.name;
-            
-            // ÉèÖÃÍæ¼Ò2Í·Ïñ
-            const player2Avatar = document.getElementById('player-2-avatar');
-            player2Avatar.innerHTML = characters[gameState.player2.character].getIcon();
-            player2Avatar.classList.add('flex', 'items-center', 'justify-center');
-            
-            // ÉèÖÃÍæ¼Ò2½ÇÉ«Í¼±ê
-            const player2Sprite = document.getElementById('player-2-sprite');
-            player2Sprite.innerHTML = characters[gameState.player2.character].getIcon();
-            player2Sprite.classList.add('flex', 'items-center', 'justify-center');
-            player2Sprite.style.width = '100%';
-            player2Sprite.style.height = '100%';
-            
-            document.getElementById('player-2-health').style.width = `${(gameState.player2.health / gameState.player2.maxHealth) * 100}%`;
-            document.getElementById('player-2-health-text').textContent = `${Math.round(gameState.player2.health)}/${gameState.player2.maxHealth}`;
-            
-            document.getElementById('player-2-energy').style.width = `${(gameState.player2.energy / gameState.player2.maxEnergy) * 100}%`;
-            document.getElementById('player-2-energy-text').textContent = `${Math.round(gameState.player2.energy)}/${gameState.player2.maxEnergy}`;
-            
-            // ¸üĞÂÁ¬»÷ÏÔÊ¾
-            document.getElementById('player-1-combo').textContent = `Á¬»÷: ${gameState.player1.combo}`;
-            document.getElementById('player-2-combo').textContent = `Á¬»÷: ${gameState.player2.combo}`;
-        }
+function delProject(id) {
+  if (!confirm('ç¡®å®šè¦åˆ é™¤è¿™ä¸ªé¡¹ç›®å—ï¼Ÿ')) return;
+  var newList = [];
+  for (var i = 0; i < projects.length; i++) {
+    if (projects[i].id !== id) newList.push(projects[i]);
+  }
+  projects = newList;
+  if (currentId === id) currentId = null;
+  save();
+  render();
+  renderDetail();
+}
 
-        // Ê¹ÓÃ¼¼ÄÜ
-        function useSkill(skillId) {
-            if (!gameState.isPlaying) return;
-            
-            const playerChar = characters[gameState.player1.character];
-            const skill = playerChar.skills[skillId];
-            
-            // ¼ì²éÄÜÁ¿ÊÇ·ñ×ã¹»
-            if (gameState.player1.energy < skill.energy) {
-                showNotification('ÄÜÁ¿²»×ã!');
-                return;
-            }
-            
-            // ¼ì²éÀäÈ´
-            if (skillCooldowns[skillId] > 0) {
-                return;
-            }
-            
-            // ÏûºÄÄÜÁ¿
-            gameState.player1.energy -= skill.energy;
-            
-            // ÉèÖÃÀäÈ´
-            skillCooldowns[skillId] = skill.cooldown;
-            const skillIcon = document.querySelector(`.skill-icon[data-skill="${skillId}"]`);
-            skillIcon.classList.add('on-cooldown');
-            skillIcon.querySelector('.cooldown-mask').style.height = '100%';
-            
-            // Ó¦ÓÃ¼¼ÄÜĞ§¹û
-            applySkillEffect(skill, skillId);
-            
-            // ¸üĞÂÁ¬»÷
-            if (skill.combo) {
-                const now = Date.now();
-                // Èç¹ûÉÏ´Î¼¼ÄÜÊ¹ÓÃÔÚ2ÃëÄÚ£¬Ôö¼ÓÁ¬»÷
-                if (now - gameState.player1.lastSkillTime < 2000) {
-                    gameState.player1.combo++;
-                    gameState.player1.skillSequence.push(skillId);
-                    
-                    // ÏÔÊ¾Á¬»÷Êı
-                    document.getElementById('player-1-combo').classList.add('show');
-                    setTimeout(() => {
-                        document.getElementById('player-1-combo').classList.remove('show');
-                    }, 1000);
-                    
-                    // ¼ì²éÁ¬»÷Ğ§¹û
-                    checkComboEffect();
-                } else {
-                    // ÖØÖÃÁ¬»÷
-                    gameState.player1.combo = 1;
-                    gameState.player1.skillSequence = [skillId];
-                }
-                gameState.player1.lastSkillTime = now;
-            } else {
-                // ÖØÖÃÁ¬»÷
-                gameState.player1.combo = 0;
-                gameState.player1.skillSequence = [];
-            }
-            
-            // ¸üĞÂUI
-            updateUI();
-            
-            // ´¥·¢µçÄÔ·´»÷
-            setTimeout(computerAttack, 1000 + Math.random() * 2000);
-        }
+function renderDetail() {
+  var box = document.getElementById('detail');
+  var p = findProject(currentId);
+  if (!p) { box.innerHTML = ''; return; }
 
-        // Ó¦ÓÃ¼¼ÄÜĞ§¹û
-        function applySkillEffect(skill, skillId) {
-            // ´´½¨¼¼ÄÜĞ§¹û¶¯»­
-            const effect = document.createElement('div');
-            effect.className = 'absolute w-32 h-32 bg-primary/30 rounded-full animate-skill-effect';
-            effect.style.left = '50%';
-            effect.style.top = '50%';
-            effect.style.transform = 'translate(-50%, -50%)';
-            
-            // Ìí¼Óµ½Íæ¼Ò1½ÇÉ«
-            document.getElementById('player-1-character').appendChild(effect);
-            
-            // ÒÆ³ıĞ§¹û
-            setTimeout(() => {
-                effect.remove();
-            }, 800);
-            
-            // ¶ÔµĞÈËÔì³ÉÉËº¦
-            if (skill.damage > 0) {
-                // ÏÔÊ¾ÉËº¦Êı×Ö
-                showDamageNumber(gameState.player2.health - skill.damage, gameState.player2.health, 'player-2-character');
-                
-                // Ó¦ÓÃÉËº¦
-                gameState.player2.health = Math.max(0, gameState.player2.health - skill.damage);
-                
-                // µĞÈËÊÜ»÷¶¯»­
-                document.getElementById('player-2-character').classList.add('animate-shake');
-                setTimeout(() => {
-                    document.getElementById('player-2-character').classList.remove('animate-shake');
-                }, 500);
-            }
-            
-            // ÖÎÁÆĞ§¹û
-            if (skill.heal) {
-                // ÏÔÊ¾ÖÎÁÆÊı×Ö
-                showHealNumber(gameState.player1.health + skill.heal, gameState.player1.health, 'player-1-character');
-                
-                // Ó¦ÓÃÖÎÁÆ
-                gameState.player1.health = Math.min(gameState.player1.maxHealth, gameState.player1.health + skill.heal);
-                
-                // ÖÎÁÆ¶¯»­
-                document.getElementById('player-1-character').classList.add('animate-glow');
-                setTimeout(() => {
-                    document.getElementById('player-1-character').classList.remove('animate-glow');
-                }, 1000);
-            }
-            
-            // ¼ì²éÓÎÏ·½áÊø
-            checkGameEnd();
-        }
+  var html = '<div class="box">';
+  html += '<h2>' + escapeHtml(p.name) + '</h2>';
+  html += '<p>ä¸»é¢˜ï¼š' + p.theme + 'ã€€æˆå‘˜ï¼š' + (p.members.join('ã€') || 'ï¼ˆæœªå¡«å†™ï¼‰') + '</p>';
 
-        // ÏÔÊ¾ÉËº¦Êı×Ö
-        function showDamageNumber(newHealth, oldHealth, targetId) {
-            const damage = oldHealth - newHealth;
-            if (damage <= 0) return;
-            
-            const damageText = document.createElement('div');
-            damageText.className = 'floating-text text-red-500';
-            damageText.textContent = `-${damage}`;
-            damageText.style.left = `${Math.random() * 50 + 25}%`;
-            damageText.style.top = `${Math.random() * 50 + 25}%`;
-            
-            document.getElementById(targetId).appendChild(damageText);
-            
-            setTimeout(() => {
-                damageText.remove();
-            }, 2000);
-        }
+  // 1. é¡¹ç›®é˜¶æ®µæµç¨‹
+  html += '<h3>é¡¹ç›®è¿›åº¦</h3>';
+  for (var i = 0; i < p.stages.length; i++) {
+    var s = p.stages[i];
+    html += '<label class="stage ' + (s.done ? 'done' : '') + '">' +
+            '<input type="checkbox" ' + (s.done ? 'checked' : '') +
+            ' onchange="toggleStage(' + p.id + ',' + i + ')"> ' +
+            (i + 1) + '. ' + s.name + '</label>';
+  }
 
-        // ÏÔÊ¾ÖÎÁÆÊı×Ö
-        function showHealNumber(newHealth, oldHealth, targetId) {
-            const heal = newHealth - oldHealth;
-            if (heal <= 0) return;
-            
-            const healText = document.createElement('div');
-            healText.className = 'floating-text text-green-500';
-            healText.textContent = `+${heal}`;
-            healText.style.left = `${Math.random() * 50 + 25}%`;
-            healText.style.top = `${Math.random() * 50 + 25}%`;
-            
-            document.getElementById(targetId).appendChild(healText);
-            
-            setTimeout(() => {
-                healText.remove();
-            }, 2000);
-        }
+  // 2. è¿‡ç¨‹è®°å½•
+  html += '<h3>è¿‡ç¨‹è®°å½•</h3>';
+  html += '<textarea id="recText" placeholder="å†™ç‚¹ä»€ä¹ˆï¼Œæ¯”å¦‚ä»Šå¤©åšäº†ä»€ä¹ˆã€å‘ç°äº†ä»€ä¹ˆ"></textarea><br>';
+  html += '<input type="file" id="recFile" accept="image/*">';
+  html += '<button onclick="addRecord(' + p.id + ')">æ·»åŠ è®°å½•</button>';
+  for (var k = 0; k < p.records.length; k++) {
+    var r = p.records[k];
+    html += '<div class="rec"><small>' + r.time + '</small><div>' + escapeHtml(r.text) + '</div>';
+    if (r.img) html += '<img src="' + r.img + '">';
+    html += '</div>';
+  }
 
-        // ¼ì²éÁ¬»÷Ğ§¹û
-        function checkComboEffect() {
-            const sequence = gameState.player1.skillSequence.join('-');
-            const playerChar = characters[gameState.player1.character];
-            
-            // ¼ì²éÊÇ·ñÓĞÆ¥ÅäµÄÁ¬»÷Ğ§¹û
-            if (playerChar.comboEffects[sequence]) {
-                const comboEffect = playerChar.comboEffects[sequence];
-                
-                // ÏÔÊ¾Á¬»÷Ğ§¹ûÍ¨Öª
-                showNotification(`´¥·¢Á¬»÷: ${comboEffect.name}!`);
-                
-                // Ó¦ÓÃ¶îÍâÉËº¦
-                if (comboEffect.damage) {
-                    showDamageNumber(gameState.player2.health - comboEffect.damage, gameState.player2.health, 'player-2-character');
-                    gameState.player2.health = Math.max(0, gameState.player2.health - comboEffect.damage);
-                }
-                
-                // »Ö¸´ÄÜÁ¿
-                if (comboEffect.energy) {
-                    gameState.player1.energy = Math.min(gameState.player1.maxEnergy, gameState.player1.energy + comboEffect.energy);
-                }
-                
-                // Ñ£ÔÎĞ§¹û
-                if (comboEffect.stun) {
-                    // ÕâÀï¿ÉÒÔÌí¼ÓÑ£ÔÎÂß¼­
-                    showNotification('µĞÈË±»Ñ£ÔÎ!');
-                }
-                
-                // ÖØÖÃÁ¬»÷ĞòÁĞ
-                gameState.player1.skillSequence = [];
-                
-                // ¸üĞÂUI
-                updateUI();
-                
-                // ¼ì²éÓÎÏ·½áÊø
-                checkGameEnd();
-            }
-        }
+  // 3. åŒä¼´äº’è¯„
+  html += '<h3>åŒä¼´äº’è¯„</h3>';
+  html += '<input id="revFrom" placeholder="ä½ çš„åå­—">';
+  html += '<select id="revScore">';
+  for (var n = 1; n <= 5; n++) html += '<option value="' + n + '">' + n + ' æ˜Ÿ</option>';
+  html += '</select>';
+  html += '<input id="revComment" placeholder="å†™ä¸€å¥è¯„è¯­">';
+  html += '<button onclick="addReview(' + p.id + ')">æäº¤äº’è¯„</button>';
+  for (var m = 0; m < p.reviews.length; m++) {
+    var rv = p.reviews[m];
+    html += '<div class="rev">' + escapeHtml(rv.from || 'åŒ¿å') + 'ï¼š' +
+            'â˜…'.repeat(rv.score) + ' ' + escapeHtml(rv.comment) + '</div>';
+  }
 
-        // ÏÔÊ¾Í¨Öª
-        function showNotification(message) {
-            const notification = document.createElement('div');
-            notification.className = 'fixed top-1/4 left-1/2 transform -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-lg text-lg font-bold z-50 animate-fade-in';
-            notification.textContent = message;
-            
-            document.body.appendChild(notification);
-            
-            setTimeout(() => {
-                notification.classList.add('opacity-0', 'transition-opacity', 'duration-500');
-                setTimeout(() => {
-                    notification.remove();
-                }, 500);
-            }, 2000);
-        }
+  // 4. å¯¼å¸ˆç‚¹è¯„
+  html += '<h3>å¯¼å¸ˆç‚¹è¯„</h3>';
+  html += '<textarea id="mentorText" placeholder="è€å¸ˆçš„ç‚¹è¯„">' + escapeHtml(p.mentor || '') + '</textarea><br>';
+  html += '<button onclick="saveMentor(' + p.id + ')">ä¿å­˜ç‚¹è¯„</button>';
 
-        // µçÄÔ¹¥»÷
-        function computerAttack() {
-            if (!gameState.isPlaying) return;
-            
-            const computerChar = characters[gameState.player2.character];
-            const availableSkills = [];
-            
-            // Ñ¡Ôñ¿ÉÓÃ¼¼ÄÜ
-            for (let i = 1; i <= 4; i++) {
-                const skill = computerChar.skills[i];
-                if (gameState.player2.energy >= skill.energy) {
-                    availableSkills.push(i);
-                }
-            }
-            
-            if (availableSkills.length === 0) return;
-            
-            // Ëæ»úÑ¡Ôñ¼¼ÄÜ
-            const skillId = availableSkills[Math.floor(Math.random() * availableSkills.length)];
-            const skill = computerChar.skills[skillId];
-            
-            // ÏûºÄÄÜÁ¿
-            gameState.player2.energy -= skill.energy;
-            
-            // ´´½¨¼¼ÄÜĞ§¹û¶¯»­
-            const effect = document.createElement('div');
-            effect.className = 'absolute w-32 h-32 bg-secondary/30 rounded-full animate-skill-effect';
-            effect.style.left = '50%';
-            effect.style.top = '50%';
-            effect.style.transform = 'translate(-50%, -50%)';
-            
-            // Ìí¼Óµ½Íæ¼Ò2½ÇÉ«
-            document.getElementById('player-2-character').appendChild(effect);
-            
-            // ÒÆ³ıĞ§¹û
-            setTimeout(() => {
-                effect.remove();
-            }, 800);
-            
-            // ¶ÔÍæ¼ÒÔì³ÉÉËº¦
-            if (skill.damage > 0) {
-                // ÏÔÊ¾ÉËº¦Êı×Ö
-                showDamageNumber(gameState.player1.health - skill.damage, gameState.player1.health, 'player-1-character');
-                
-                // Ó¦ÓÃÉËº¦
-                gameState.player1.health = Math.max(0, gameState.player1.health - skill.damage);
-                
-                // Íæ¼ÒÊÜ»÷¶¯»­
-                document.getElementById('player-1-character').classList.add('animate-shake');
-                setTimeout(() => {
-                    document.getElementById('player-1-character').classList.remove('animate-shake');
-                }, 500);
-            }
-            
-            // ÖÎÁÆĞ§¹û
-            if (skill.heal) {
-                // ÏÔÊ¾ÖÎÁÆÊı×Ö
-                showHealNumber(gameState.player2.health + skill.heal, gameState.player2.health, 'player-2-character');
-                
-                // Ó¦ÓÃÖÎÁÆ
-                gameState.player2.health = Math.min(gameState.player2.maxHealth, gameState.player2.health + skill.heal);
-                
-                // ÖÎÁÆ¶¯»­
-                document.getElementById('player-2-character').classList.add('animate-glow');
-                setTimeout(() => {
-                    document.getElementById('player-2-character').classList.remove('animate-glow');
-                }, 1000);
-            }
-            
-            // ¸üĞÂUI
-            updateUI();
-            
-            // ¼ì²éÓÎÏ·½áÊø
-            checkGameEnd();
-        }
+  // 5. èƒ½åŠ›é›·è¾¾
+  html += '<h3>èƒ½åŠ›é›·è¾¾</h3>';
+  html += radarSVG(p.ability, 220);
+  html += '<div style="margin-top:8px">';
+  for (var a = 0; a < ABILITIES.length; a++) {
+    html += '<span class="ab">' + ABILITIES[a] +
+            ' <input id="ab' + a + '" type="number" min="0" max="10" value="' + p.ability[a] + '"></span>';
+  }
+  html += '</div>';
+  html += '<button onclick="saveAbility(' + p.id + ')">ä¿å­˜åˆ†æ•°</button>';
+  html += '<button onclick="autoAbility(' + p.id + ')">æŒ‰è¿›åº¦è‡ªåŠ¨å¡«</button>';
 
-        // ¼ì²éÓÎÏ·½áÊø
-        function checkGameEnd() {
-            if (gameState.player1.health <= 0) {
-                endGame('player2');
-            } else if (gameState.player2.health <= 0) {
-                endGame('player1');
-            }
-        }
+  // 6. é¡¹ç›®æ¡£æ¡ˆ + å®¶é•¿æŸ¥çœ‹
+  html += '<h3>é¡¹ç›®æ¡£æ¡ˆ</h3>';
+  html += '<button onclick="exportArchive(' + p.id + ')">å¯¼å‡ºæ¡£æ¡ˆ</button>';
+  html += ' <button onclick="openParent(' + p.id + ')">å®¶é•¿æŸ¥çœ‹é¡µ</button>';
+  html += ' <button onclick="closeDetail()">å…³é—­</button>';
 
-        // ½áÊøÓÎÏ·
-        function endGame(winner) {
-            gameState.isPlaying = false;
-            
-            // ÉèÖÃÊ¤ÀûÕßĞÅÏ¢
-            const winnerText = document.getElementById('result-text');
-            const winnerIcon = document.getElementById('winner-icon');
-            
-            if (winner === 'player1') {
-                winnerText.textContent = 'ÄãÓ®ÁË!';
-                winnerText.className = 'text-4xl font-bold mb-8 text-shadow-lg text-player-1';
-                winnerIcon.innerHTML = characters[gameState.player1.character].getIcon();
-            } else {
-                winnerText.textContent = 'ÄãÊäÁË!';
-                winnerText.className = 'text-4xl font-bold mb-8 text-shadow-lg text-player-2';
-                winnerIcon.innerHTML = characters[gameState.player2.character].getIcon();
-            }
-            
-            // ÏÔÊ¾½áÊøÆÁÄ»
-            gameScreen.classList.add('hidden');
-            endScreen.classList.remove('hidden');
-            
-            gameState.currentScreen = 'end';
-        }
+  html += '</div>';
+  box.innerHTML = html;
+}
 
-        // ÖØĞÂ¿ªÊ¼ÓÎÏ·
-        function restartGame() {
-            // ÖØÖÃÓÎÏ·×´Ì¬
-            gameState.selectedCharacter = null;
-            gameState.player1.combo = 0;
-            gameState.player1.skillSequence = [];
-            gameState.player2.combo = 0;
-            gameState.player2.skillSequence = [];
-            
-            // ÖØÖÃUI
-            warriorSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
-            mageSelection.querySelector('div').classList.remove('border-player-1', 'border-player-2');
-            startButton.disabled = true;
-            
-            // ÇĞ»»µ½¿ªÊ¼ÆÁÄ»
-            endScreen.classList.add('hidden');
-            startScreen.classList.remove('hidden');
-            
-            gameState.currentScreen = 'start';
-        }
+function closeDetail() {
+  currentId = null;
+  renderDetail();
+}
 
-        // ´¦Àí¼üÅÌÊÂ¼ş
-        function handleKeyDown(event) {
-            if (!gameState.isPlaying) return;
-            
-            switch (event.key) {
-                case '1':
-                    useSkill(1);
-                    break;
-                case '2':
-                    useSkill(2);
-                    break;
-                case '3':
-                    useSkill(3);
-                    break;
-                case '4':
-                    useSkill(4);
-                    break;
-            }
-        }
+// ---------- å„ä¸ªæ“ä½œ ----------
+function toggleStage(id, index) {
+  var p = findProject(id);
+  p.stages[index].done = !p.stages[index].done;
+  save();
+  render();
+  renderDetail();
+}
 
-        // ÉèÖÃĞéÄâÒ¡¸Ë
-        function setupJoystick() {
-            joystickOuter.addEventListener('mousedown', startJoystick);
-            joystickOuter.addEventListener('touchstart', startJoystick, { passive: false });
-            
-            document.addEventListener('mousemove', moveJoystick);
-            document.addEventListener('touchmove', moveJoystick, { passive: false });
-            
-            document.addEventListener('mouseup', endJoystick);
-            document.addEventListener('touchend', endJoystick);
-        }
+function addRecord(id) {
+  var p = findProject(id);
+  var text = document.getElementById('recText').value.trim();
+  var file = document.getElementById('recFile').files[0];
+  if (!text && !file) { alert('å†™ç‚¹å†…å®¹æˆ–é€‰å¼ å›¾ç‰‡å§'); return; }
 
-        // ¿ªÊ¼Ò¡¸Ë²Ù×÷
-        function startJoystick(event) {
-            event.preventDefault();
-            
-            const rect = joystickOuter.getBoundingClientRect();
-            const clientX = event.clientX || event.touches[0].clientX;
-            const clientY = event.clientY || event.touches[0].clientY;
-            
-            joystick.isActive = true;
-            joystick.startX = clientX - rect.left;
-            joystick.startY = clientY - rect.top;
-            joystick.currentX = joystick.startX;
-            joystick.currentY = joystick.startY;
-            
-            updateJoystickPosition();
-        }
+  var now = new Date().toLocaleString();
+  if (file) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      p.records.push({ time: now, text: text, img: e.target.result });
+      save();
+      renderDetail();
+    };
+    reader.readAsDataURL(file);
+  } else {
+    p.records.push({ time: now, text: text, img: '' });
+    save();
+    renderDetail();
+  }
+}
 
-        // ÒÆ¶¯Ò¡¸Ë
-        function moveJoystick(event) {
-            if (!joystick.isActive) return;
-            
-            event.preventDefault();
-            
-            const rect = joystickOuter.getBoundingClientRect();
-            const clientX = event.clientX || (event.touches ? event.touches[0].clientX : joystick.currentX);
-            const clientY = event.clientY || (event.touches ? event.touches[0].clientY : joystick.currentY);
-            
-            const deltaX = clientX - rect.left - joystick.startX;
-            const deltaY = clientY - rect.top - joystick.startY;
-            
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-            const maxDistance = joystick.maxDistance;
-            
-            if (distance <= maxDistance) {
-                joystick.currentX = joystick.startX + deltaX;
-                joystick.currentY = joystick.startY + deltaY;
-            } else {
-                const ratio = maxDistance / distance;
-                joystick.currentX = joystick.startX + deltaX * ratio;
-                joystick.currentY = joystick.startY + deltaY * ratio;
-            }
-            
-            updateJoystickPosition();
-            
-            // ´¦Àí½ÇÉ«ÒÆ¶¯
-            if (gameState.isPlaying) {
-                const normalizedX = (joystick.currentX - joystick.startX) / maxDistance;
-                const normalizedY = (joystick.currentY - joystick.startY) / maxDistance;
-                
-                // ¸üĞÂÍæ¼ÒÎ»ÖÃ
-                gameState.player1.position.x = Math.max(-200, Math.min(200, gameState.player1.position.x + normalizedX * 5));
-                gameState.player1.position.y = Math.max(-100, Math.min(100, gameState.player1.position.y + normalizedY * 5));
-                
-                // ¸üĞÂUI
-                const playerElement = document.getElementById('player-1-character');
-                playerElement.style.transform = `translate(${gameState.player1.position.x}px, ${gameState.player1.position.y}px)`;
-            }
-        }
+function addReview(id) {
+  var p = findProject(id);
+  var from = document.getElementById('revFrom').value.trim();
+  var score = Number(document.getElementById('revScore').value);
+  var comment = document.getElementById('revComment').value.trim();
+  p.reviews.push({ from: from, score: score, comment: comment });
+  save();
+  renderDetail();
+}
 
-        // ½áÊøÒ¡¸Ë²Ù×÷
-        function endJoystick() {
-            if (!joystick.isActive) return;
-            
-            joystick.isActive = false;
-            joystick.currentX = joystick.startX;
-            joystick.currentY = joystick.startY;
-            
-            updateJoystickPosition();
-        }
+function saveMentor(id) {
+  var p = findProject(id);
+  p.mentor = document.getElementById('mentorText').value;
+  save();
+  alert('ç‚¹è¯„å·²ä¿å­˜');
+}
 
-        // ¸üĞÂÒ¡¸ËÎ»ÖÃ
-        function updateJoystickPosition() {
-            joystickInner.style.transform = `translate(${joystick.currentX - joystick.startX}px, ${joystick.currentY - joystick.startY}px)`;
-        }
+// ä¿å­˜å››ä¸ªèƒ½åŠ›åˆ†æ•°
+function saveAbility(id) {
+  var p = findProject(id);
+  for (var a = 0; a < ABILITIES.length; a++) {
+    p.ability[a] = Number(document.getElementById('ab' + a).value) || 0;
+  }
+  save();
+  renderDetail();
+}
 
-        // ÓÎÏ·Ö÷Ñ­»·
-        function updateGame(timestamp) {
-            if (gameState.isPlaying) {
-                const deltaTime = timestamp - gameState.lastUpdateTime;
-                gameState.lastUpdateTime = timestamp;
-                
-                // ¸üĞÂ¼¼ÄÜÀäÈ´
-                updateCooldowns(deltaTime);
-                
-                // »Ö¸´ÄÜÁ¿
-                gameState.player1.energy = Math.min(gameState.player1.maxEnergy, gameState.player1.energy + deltaTime * 0.01);
-                gameState.player2.energy = Math.min(gameState.player2.maxEnergy, gameState.player2.energy + deltaTime * 0.01);
-                
-                // ¸üĞÂUI
-                updateUI();
-            }
-            
-            window.requestAnimationFrame(updateGame);
-        }
+// æ ¹æ®é¡¹ç›®æƒ…å†µè‡ªåŠ¨ç»™åˆ†ï¼ˆä¾›å‚è€ƒï¼Œå¯ä»¥å†æ‰‹åŠ¨æ”¹ï¼‰
+function autoAbility(id) {
+  var p = findProject(id);
+  var done = 0, withImg = 0;
+  for (var i = 0; i < p.stages.length; i++) if (p.stages[i].done) done++;
+  for (var k = 0; k < p.records.length; k++) if (p.records[k].img) withImg++;
 
-        // ¸üĞÂ¼¼ÄÜÀäÈ´
-        function updateCooldowns(deltaTime) {
-            for (let i = 1; i <= 4; i++) {
-                if (skillCooldowns[i] > 0) {
-                    skillCooldowns[i] = Math.max(0, skillCooldowns[i] - deltaTime);
-                    
-                    const skillIcon = document.querySelector(`.skill-icon[data-skill="${i}"]`);
-                    const cooldownMask = skillIcon.querySelector('.cooldown-mask');
-                    const playerChar = characters[gameState.player1.character];
-                    const cooldown = playerChar.skills[i].cooldown;
-                    
-                    const cooldownPercentage = (skillCooldowns[i] / cooldown) * 100;
-                    cooldownMask.style.height = `${cooldownPercentage}%`;
-                    
-                    if (skillCooldowns[i] === 0) {
-                        skillIcon.classList.remove('on-cooldown');
-                    }
-                }
-            }
-        }
+  p.ability[0] = Math.min(10, Math.round(done / p.stages.length * 6) + Math.min(p.records.length, 4));
+  p.ability[1] = Math.min(10, p.reviews.length + p.members.length);
+  p.ability[2] = Math.min(10, 2 + withImg);
+  p.ability[3] = p.stages[p.stages.length - 1].done ? 8 : 4;
 
-        // ³õÊ¼»¯ÓÎÏ·
-        window.addEventListener('DOMContentLoaded', initGame);
-    </script>
+  save();
+  renderDetail();
+}
+
+// ---------- å®¶é•¿æŸ¥çœ‹é¡µï¼ˆåªè¯»ï¼Œæ–°çª—å£æ‰“å¼€ï¼‰ ----------
+function openParent(id) {
+  var p = findProject(id);
+  var done = 0;
+  for (var i = 0; i < p.stages.length; i++) if (p.stages[i].done) done++;
+
+  var h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">';
+  h += '<title>å®¶é•¿æŸ¥çœ‹ - ' + p.name + '</title>';
+  h += '<style>body{font-family:"Microsoft YaHei",sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#333}';
+  h += 'h1{color:#2a6df4}h2{border-left:4px solid #2a6df4;padding-left:8px}';
+  h += '.item{background:#f7f9fc;border-radius:6px;padding:8px;margin:6px 0}small{color:#999}</style></head><body>';
+  h += '<h1>' + escapeHtml(p.name) + ' Â· æˆé•¿æ¡£æ¡ˆ</h1>';
+  h += '<p>ä¸»é¢˜ï¼š' + p.theme + 'ã€€æˆå‘˜ï¼š' + (p.members.join('ã€') || 'ï¼ˆæœªå¡«å†™ï¼‰') + '</p>';
+  h += '<p>é¡¹ç›®è¿›åº¦ï¼š' + done + '/' + p.stages.length + '</p>';
+
+  h += '<h2>èƒ½åŠ›é›·è¾¾</h2>' + radarSVG(p.ability, 240);
+
+  h += '<h2>è¿‡ç¨‹è®°å½•ï¼ˆ' + p.records.length + ' æ¡ï¼‰</h2>';
+  if (p.records.length === 0) h += '<p>ï¼ˆè¿˜æ²¡æœ‰è®°å½•ï¼‰</p>';
+  for (var k = 0; k < p.records.length; k++) {
+    h += '<div class="item"><small>' + p.records[k].time + '</small><div>' +
+         escapeHtml(p.records[k].text) + '</div></div>';
+  }
+
+  h += '<h2>åŒä¼´äº’è¯„</h2>';
+  if (p.reviews.length === 0) h += '<p>ï¼ˆè¿˜æ²¡æœ‰äº’è¯„ï¼‰</p>';
+  for (var m = 0; m < p.reviews.length; m++) {
+    h += '<div class="item">' + escapeHtml(p.reviews[m].from || 'åŒ¿å') + 'ï¼š' +
+         'â˜…'.repeat(p.reviews[m].score) + ' ' + escapeHtml(p.reviews[m].comment) + '</div>';
+  }
+
+  h += '<h2>å¯¼å¸ˆç‚¹è¯„</h2><p>' + (p.mentor ? escapeHtml(p.mentor) : 'ï¼ˆæš‚æ— ï¼‰') + '</p>';
+  h += '</body></html>';
+
+  var w = window.open('', '_blank');
+  w.document.write(h);
+  w.document.close();
+}
+
+// ---------- å¯¼å‡ºé¡¹ç›®æ¡£æ¡ˆ ----------
+function exportArchive(id) {
+  var p = findProject(id);
+  var t = 'ã€é¡¹ç›®æ¡£æ¡ˆã€‘\n';
+  t += 'é¡¹ç›®åç§°ï¼š' + p.name + '\n';
+  t += 'ä¸»é¢˜ï¼š' + p.theme + '\n';
+  t += 'æˆå‘˜ï¼š' + (p.members.join('ã€') || 'ï¼ˆæœªå¡«å†™ï¼‰') + '\n\n';
+
+  t += 'ã€é˜¶æ®µè¿›åº¦ã€‘\n';
+  for (var i = 0; i < p.stages.length; i++) {
+    t += (i + 1) + '. ' + p.stages[i].name + (p.stages[i].done ? ' å·²å®Œæˆ' : ' æœªå®Œæˆ') + '\n';
+  }
+
+  t += '\nã€èƒ½åŠ›è¯„åˆ†ã€‘\n';
+  for (var a = 0; a < ABILITIES.length; a++) {
+    t += ABILITIES[a] + 'ï¼š' + p.ability[a] + '/10\n';
+  }
+
+  t += '\nã€è¿‡ç¨‹è®°å½•ã€‘\n';
+  for (var k = 0; k < p.records.length; k++) {
+    t += (k + 1) + '. [' + p.records[k].time + '] ' + p.records[k].text +
+         (p.records[k].img ? 'ï¼ˆå«å›¾ç‰‡ï¼‰' : '') + '\n';
+  }
+
+  t += '\nã€åŒä¼´äº’è¯„ã€‘\n';
+  for (var m = 0; m < p.reviews.length; m++) {
+    t += (p.reviews[m].from || 'åŒ¿å') + 'ï¼š' + 'â˜…'.repeat(p.reviews[m].score) +
+         ' ' + p.reviews[m].comment + '\n';
+  }
+
+  t += '\nã€å¯¼å¸ˆç‚¹è¯„ã€‘\n' + (p.mentor || 'ï¼ˆæš‚æ— ï¼‰') + '\n';
+
+  var blob = new Blob([t], { type: 'text/plain;charset=utf-8' });
+  var a2 = document.createElement('a');
+  a2.href = URL.createObjectURL(blob);
+  a2.download = p.name + '_é¡¹ç›®æ¡£æ¡ˆ.txt';
+  a2.click();
+}
+
+// é¡µé¢æ‰“å¼€æ—¶å…ˆæ˜¾ç¤ºå·²æœ‰é¡¹ç›®
+render();
+</script>
 </body>
 </html>
