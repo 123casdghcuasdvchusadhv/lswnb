@@ -5,59 +5,233 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>科创项目小助手</title>
 <style>
-  body { font-family: "Microsoft YaHei", sans-serif; background:#f4f7fb; margin:0; padding:20px; color:#333; }
-  h1 { color:#2a6df4; text-align:center; }
-  h2 { color:#2a6df4; }
-  h3 { margin-top:20px; border-left:4px solid #2a6df4; padding-left:8px; }
-  .card { background:#fff; border-radius:10px; padding:12px; margin:10px 0; box-shadow:0 1px 4px rgba(0,0,0,.1); }
-  .box { background:#fff; border-radius:10px; padding:16px; box-shadow:0 1px 4px rgba(0,0,0,.1); }
-  input, select, textarea, button { font-size:14px; padding:8px; margin:4px 2px; border-radius:6px; border:1px solid #ccc; }
-  textarea { width:95%; min-height:60px; }
-  button { background:#2a6df4; color:#fff; border:none; cursor:pointer; }
-  button:hover { background:#1b4fc0; }
-  .tag { background:#e6f0ff; color:#2a6df4; border-radius:6px; padding:2px 8px; font-size:12px; }
-  .bar { background:#e6e6e6; border-radius:6px; height:12px; margin:8px 0; }
-  .fill { background:#4caf50; height:12px; border-radius:6px; }
-  .stage { display:block; padding:6px; margin:4px 0; background:#f0f4fa; border-radius:6px; cursor:pointer; }
-  .stage.done { background:#dff5e1; text-decoration:line-through; color:#4caf50; }
-  .rec, .rev { background:#f7f9fc; border-radius:6px; padding:8px; margin:6px 0; }
-  .rec img { max-width:160px; display:block; margin-top:6px; border-radius:6px; }
-  .rec small { color:#999; }
-  .ab { display:inline-block; margin-right:10px; }
-  .ab input { width:55px; }
-  #detail { margin-top:20px; }
+  :root {
+    --bg:#eef2fb;
+    --card:#ffffff;
+    --primary:#3b5bdb;
+    --primary2:#7048e8;
+    --green:#37b24d;
+    --text:#1c2333;
+    --muted:#7a8699;
+    --line:#e6ebf5;
+    --shadow:0 2px 8px rgba(30,50,100,.08);
+  }
+  * { box-sizing:border-box; }
+  body {
+    font-family:"Microsoft YaHei","PingFang SC",sans-serif;
+    background:var(--bg); margin:0; padding:20px; color:var(--text); line-height:1.6;
+  }
+  .wrap { max-width:960px; margin:0 auto; }
+
+  /* ---------- 顶部 ---------- */
+  .hero {
+    background:linear-gradient(135deg,var(--primary),var(--primary2));
+    color:#fff; border-radius:16px; padding:28px 24px;
+    box-shadow:0 8px 24px rgba(59,91,219,.35); position:relative; overflow:hidden;
+  }
+  .hero h1 { margin:0; font-size:26px; }
+  .hero p { margin:6px 0 0; opacity:.85; font-size:14px; }
+  .stats { display:flex; gap:12px; margin-top:18px; flex-wrap:wrap; }
+  .stat {
+    background:rgba(255,255,255,.15); border-radius:12px; padding:10px 16px; min-width:110px;
+    backdrop-filter:blur(4px);
+  }
+  .stat b { font-size:22px; display:block; }
+  .stat span { font-size:12px; opacity:.85; }
+
+  /* ---------- 卡片 ---------- */
+  .card, .box {
+    background:var(--card); border-radius:14px; padding:16px;
+    box-shadow:var(--shadow); margin:14px 0; border:1px solid var(--line);
+  }
+  h3 { margin:0 0 10px; font-size:16px; display:flex; align-items:center; gap:8px; }
+  h3::before { content:""; width:4px; height:16px; border-radius:2px; background:linear-gradient(var(--primary),var(--primary2)); }
+
+  input, select, textarea, button { font-size:14px; padding:9px 12px; border-radius:10px; border:1px solid var(--line); outline:none; }
+  input:focus, select:focus, textarea:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(59,91,219,.12); }
+  textarea { width:100%; min-height:64px; resize:vertical; }
+  button { cursor:pointer; border:none; font-weight:600; transition:.2s; }
+  button:hover { transform:translateY(-1px); }
+  .btn-p { background:linear-gradient(135deg,var(--primary),var(--primary2)); color:#fff; }
+  .btn-p:hover { box-shadow:0 4px 12px rgba(59,91,219,.35); }
+  .btn-g { background:#f0f3fa; color:var(--text); }
+  .btn-g:hover { background:#e4e9f5; }
+  .btn-danger { background:#fff0f0; color:#e03131; }
+  .btn-danger:hover { background:#ffe3e3; }
+  .tag {
+    background:#eef3ff; color:var(--primary); border-radius:20px; padding:3px 12px; font-size:12px;
+    display:inline-block;
+  }
+
+  /* ---------- 顶部工具栏 ---------- */
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .toolbar input[type=text] { flex:1; min-width:160px; }
+  select { background:#fff; }
+
+  /* ---------- 项目卡片列表 ---------- */
+  #list { display:grid; grid-template-columns:1fr; gap:12px; }
+  .proj {
+    background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px;
+    box-shadow:var(--shadow); transition:.2s; cursor:pointer;
+  }
+  .proj:hover { transform:translateY(-3px); box-shadow:0 8px 20px rgba(30,50,100,.12); }
+  .proj .top { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; }
+  .proj .name { font-size:17px; font-weight:700; }
+  .proj .meta { font-size:12px; color:var(--muted); margin:4px 0 8px; }
+  .pbar { background:#ecf0f9; border-radius:8px; height:10px; overflow:hidden; }
+  .pfill {
+    height:100%; border-radius:8px;
+    background:linear-gradient(90deg,var(--primary),var(--primary2));
+    transition:width .5s ease; display:block;
+  }
+  .proj .pct { font-size:12px; color:var(--muted); margin-top:4px; }
+  .empty {
+    text-align:center; color:var(--muted); padding:36px 0; font-size:14px;
+    background:var(--card); border-radius:14px; border:1px dashed var(--line);
+  }
+
+  /* ---------- 详情 ---------- */
+  #detail .box { animation:fadeIn .3s ease; }
+  @keyframes fadeIn { from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;} }
+  .stage {
+    display:flex; align-items:center; gap:8px; padding:8px 12px; margin:4px 0;
+    background:#f4f7fd; border-radius:10px; cursor:pointer; transition:.2s;
+  }
+  .stage:hover { background:#eaf0fc; }
+  .stage.done { background:#e9f9ed; color:#2b8a3e; }
+  .stage.done .sname { text-decoration:line-through; }
+  .sno {
+    background:var(--primary); color:#fff; border-radius:50%; width:20px; height:20px;
+    font-size:11px; display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .stage.done .sno { background:var(--green); }
+
+  /* 记录时间线 */
+  .timeline { border-left:2px solid var(--line); margin-left:8px; padding-left:16px; }
+  .rec { position:relative; margin:10px 0; }
+  .rec::before {
+    content:""; position:absolute; left:-23px; top:8px; width:10px; height:10px;
+    border-radius:50%; background:var(--primary2); border:2px solid #fff;
+    box-shadow:0 0 0 2px var(--primary2);
+  }
+  .rec .time { font-size:12px; color:var(--muted); }
+  .rec .txt { background:#f7f9fd; border-radius:10px; padding:8px 10px; margin-top:4px; }
+  .rec img { max-width:180px; display:block; margin-top:8px; border-radius:10px; }
+  .rec .del { float:right; font-size:12px; padding:2px 8px; }
+
+  /* 互评 */
+  .rev {
+    display:flex; align-items:center; gap:10px; background:#f7f9fd; border-radius:10px;
+    padding:8px 10px; margin:6px 0;
+  }
+  .rev .stars { color:#fab005; letter-spacing:2px; }
+  .rev .from { font-weight:700; font-size:13px; }
+  .rev .cmt { color:var(--muted); font-size:13px; flex:1; }
+  .avg { font-size:13px; color:var(--muted); }
+
+  /* 能力雷达 */
+  .ab {
+    display:inline-flex; flex-direction:column; align-items:center; gap:2px;
+    margin:6px 12px 6px 0; background:#f4f7fd; border-radius:10px; padding:8px 12px;
+  }
+  .ab .abName { font-size:13px; font-weight:700; color:var(--primary); }
+  .ab input[type=range] { accent-color:var(--primary); }
+  .ab b { font-size:16px; }
+
+  /* 弹窗 */
+  .mask {
+    position:fixed; inset:0; background:rgba(20,30,60,.45); display:none;
+    align-items:center; justify-content:center; z-index:99; backdrop-filter:blur(2px);
+  }
+  .mask.show { display:flex; }
+  .modal {
+    background:#fff; border-radius:16px; padding:22px; width:90%; max-width:400px;
+    box-shadow:0 16px 40px rgba(20,30,60,.3); animation:pop .25s ease;
+  }
+  @keyframes pop { from{transform:scale(.92); opacity:0;} to{transform:scale(1); opacity:1;} }
+  .modal h4 { margin:0 0 12px; }
+  .modal .tips { font-size:12px; color:var(--muted); margin-top:6px; }
+
+  /* 提示条 */
+  #toast {
+    position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(80px);
+    background:#1c2333; color:#fff; padding:10px 20px; border-radius:30px; font-size:14px;
+    opacity:0; transition:.3s; z-index:99; box-shadow:0 8px 20px rgba(0,0,0,.25);
+  }
+  #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 </style>
 </head>
 <body>
+<div class="wrap">
 
-<h1>科创项目小助手</h1>
+  <!-- 顶部 -->
+  <div class="hero">
+    <h1>🚀 科创项目小助手</h1>
+    <p>让每一次尝试都被看见 —— 记录 · 协作 · 成长</p>
+    <div class="stats" id="stats"></div>
+  </div>
 
-<!-- 新建项目 -->
-<div class="box">
-  <h3>新建项目</h3>
-  <input id="pname" placeholder="项目名字，比如：自动浇花装置">
-  <select id="ptheme">
-    <option>未来工厂</option>
-    <option>智慧城市</option>
-    <option>生命盒子</option>
-    <option>自然公社</option>
-    <option>太空码头</option>
-  </select>
-  <input id="pmembers" placeholder="小组成员，用逗号隔开">
-  <button onclick="addProject()">创建项目</button>
+  <!-- 新建项目 -->
+  <div class="box">
+    <h3>新建项目</h3>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">
+      <input id="pname" placeholder="项目名字，比如：自动浇花装置">
+      <select id="ptheme">
+        <option>未来工厂</option>
+        <option>智慧城市</option>
+        <option>生命盒子</option>
+        <option>自然公社</option>
+        <option>太空码头</option>
+      </select>
+      <input id="pmembers" placeholder="小组成员，用逗号隔开">
+      <button class="btn-p" onclick="addProject()">＋ 创建项目</button>
+    </div>
+  </div>
+
+  <!-- 工具栏：搜索 / 筛选 / 排序 -->
+  <div class="toolbar">
+    <input type="text" id="kw" placeholder="🔍 搜索项目名称或成员" oninput="renderList()">
+    <select id="themeFilter" onchange="renderList()">
+      <option value="全部">全部主题</option>
+      <option>未来工厂</option>
+      <option>智慧城市</option>
+      <option>生命盒子</option>
+      <option>自然公社</option>
+      <option>太空码头</option>
+    </select>
+    <select id="sortBy" onchange="renderList()">
+      <option value="progress">按进度排序</option>
+      <option value="new">按新建时间排序</option>
+      <option value="name">按名称排序</option>
+    </select>
+  </div>
+
+  <!-- 项目列表 -->
+  <div id="list"></div>
+
+  <!-- 项目详情 -->
+  <div id="detail"></div>
 </div>
 
-<!-- 项目列表 / 进度看板 -->
-<h3>我的项目（进度看板）</h3>
-<div id="list"></div>
+<!-- 删除确认弹窗 -->
+<div class="mask" id="mask" onclick="maskClick(event)">
+  <div class="modal">
+    <h4>😢 确定删除这个项目吗？</h4>
+    <p id="delInfo" style="font-size:13px;color:var(--muted);">删除后无法恢复。</p>
+    <div style="text-align:right; margin-top:14px;">
+      <button class="btn-g" onclick="closeModal()">再想想</button>
+      <button class="btn-danger" id="delBtn" style="margin-left:8px;" onclick="confirmDel()">删除</button>
+    </div>
+  </div>
+</div>
 
-<!-- 项目详情 -->
-<div id="detail"></div>
+<div id="toast"></div>
 
 <script>
 // ---------- 数据 ----------
 var projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
 var currentId = null;
+var delTargetId = null;
 
 var THEMES = ['未来工厂','智慧城市','生命盒子','自然公社','太空码头'];
 var STAGES = ['提出问题','设计方案','记录数据','分析结论','成果展示'];
@@ -74,17 +248,24 @@ function findProject(id) {
   return null;
 }
 
-function escapeHtml(s) {
+function esc(s) {
   return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// ---------- 画能力雷达图（用 SVG，不用装任何插件） ----------
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show';
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.className = ''; }, 2200);
+}
+
+// ---------- 画能力雷达图（SVG，不用装插件） ----------
 function radarSVG(values, size) {
-  var cx = size / 2, cy = size / 2, r = size / 2 - 28;
+  var cx = size / 2, cy = size / 2, r = size / 2 - 34;
   var n = values.length;
   var s = '<svg width="' + size + '" height="' + size + '" viewBox="0 0 ' + size + ' ' + size + '">';
 
-  // 一圈一圈的网格
   for (var level = 2; level <= 10; level += 2) {
     var pts = [];
     for (var i = 0; i < n; i++) {
@@ -92,15 +273,13 @@ function radarSVG(values, size) {
       var rr = r * level / 10;
       pts.push((cx + rr * Math.cos(ang)).toFixed(1) + ',' + (cy + rr * Math.sin(ang)).toFixed(1));
     }
-    s += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="#dde6f5"/>';
+    s += '<polygon points="' + pts.join(' ') + '" fill="none" stroke="#e0e7f5"/>';
   }
-  // 从中心出去的轴线
   for (var i = 0; i < n; i++) {
     var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
     s += '<line x1="' + cx + '" y1="' + cy + '" x2="' + (cx + r * Math.cos(ang)).toFixed(1) +
-         '" y2="' + (cy + r * Math.sin(ang)).toFixed(1) + '" stroke="#dde6f5"/>';
+         '" y2="' + (cy + r * Math.sin(ang)).toFixed(1) + '" stroke="#e0e7f5"/>';
   }
-  // 数据围成的形状
   var dpts = [];
   for (var i = 0; i < n; i++) {
     var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
@@ -108,17 +287,46 @@ function radarSVG(values, size) {
     var rr = r * v / 10;
     dpts.push((cx + rr * Math.cos(ang)).toFixed(1) + ',' + (cy + rr * Math.sin(ang)).toFixed(1));
   }
-  s += '<polygon points="' + dpts.join(' ') + '" fill="rgba(42,109,244,0.25)" stroke="#2a6df4" stroke-width="2"/>';
-  // 四个维度的名字
+  // 渐变填充的封闭图形
+  s += '<defs><linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">';
+  s += '<stop offset="0%" stop-color="#3b5bdb" stop-opacity="0.45"/>';
+  s += '<stop offset="100%" stop-color="#7048e8" stop-opacity="0.25"/>';
+  s += '</linearGradient></defs>';
+  s += '<polygon points="' + dpts.join(' ') + '" fill="url(#rg)" stroke="#4263eb" stroke-width="2"/>';
+
+  // 顶点圆点 + 分数
   for (var i = 0; i < n; i++) {
     var ang = -Math.PI / 2 + i * 2 * Math.PI / n;
-    var lx = cx + (r + 15) * Math.cos(ang);
-    var ly = cy + (r + 15) * Math.sin(ang);
+    var v = Math.max(0, Math.min(10, Number(values[i]) || 0));
+    var rr = r * v / 10;
+    var px = cx + rr * Math.cos(ang), py = cy + rr * Math.sin(ang);
+    s += '<circle cx="' + px.toFixed(1) + '" cy="' + py.toFixed(1) + '" r="4" fill="#fff" stroke="#4263eb" stroke-width="2"/>';
+    var lx = cx + (r + 20) * Math.cos(ang);
+    var ly = cy + (r + 20) * Math.sin(ang);
     s += '<text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) +
-         '" font-size="12" fill="#333" text-anchor="middle" dominant-baseline="middle">' + ABILITIES[i] + '</text>';
+         '" font-size="12" font-weight="700" fill="#333" text-anchor="middle" dominant-baseline="middle">'
+         + ABILITIES[i] + ' ' + v + '</text>';
   }
   s += '</svg>';
   return s;
+}
+
+// ---------- 顶部统计 ----------
+function renderStats() {
+  var recs = 0, scores = [], done = 0, total = 0;
+  for (var i = 0; i < projects.length; i++) {
+    var p = projects[i];
+    recs += p.records.length;
+    for (var k = 0; k < p.reviews.length; k++) scores.push(p.reviews[k].score);
+    for (var j = 0; j < p.stages.length; j++) { if (p.stages[j].done) done++; total++; }
+  }
+  var avg = scores.length ? (scores.reduce(function(a,b){ return a + b; }, 0) / scores.length).toFixed(1) : '—';
+  var pct = total ? Math.round(done / total * 100) : 0;
+  document.getElementById('stats').innerHTML =
+    '<div class="stat"><b>' + projects.length + '</b><span>项目总数</span></div>' +
+    '<div class="stat"><b>' + recs + '</b><span>记录总数</span></div>' +
+    '<div class="stat"><b>★ ' + avg + '</b><span>互评平均分</span></div>' +
+    '<div class="stat"><b>' + pct + '%</b><span>整体进度</span></div>';
 }
 
 // ---------- 新建项目 ----------
@@ -126,7 +334,7 @@ function addProject() {
   var name = document.getElementById('pname').value.trim();
   var theme = document.getElementById('ptheme').value;
   var members = document.getElementById('pmembers').value.trim();
-  if (!name) { alert('请先写项目名字'); return; }
+  if (!name) { toast('请先写项目名字'); return; }
 
   var stageList = [];
   for (var i = 0; i < STAGES.length; i++) {
@@ -148,124 +356,69 @@ function addProject() {
   document.getElementById('pname').value = '';
   document.getElementById('pmembers').value = '';
   save();
-  render();
+  renderStats();
+  renderList();
+  toast('项目已创建 ✔');
 }
 
-// ---------- 显示项目列表 ----------
-function render() {
+function doneCount(p) {
+  var n = 0;
+  for (var i = 0; i < p.stages.length; i++) if (p.stages[i].done) n++;
+  return n;
+}
+
+// ---------- 项目列表（搜索 + 筛选 + 排序） ----------
+function renderList() {
+  var kw = document.getElementById('kw').value.trim().toLowerCase();
+  var theme = document.getElementById('themeFilter').value;
+  var sortBy = document.getElementById('sortBy').value;
   var list = document.getElementById('list');
-  list.innerHTML = '';
-  if (projects.length === 0) {
-    list.innerHTML = '<p>还没有项目，先在上面新建一个吧。</p>';
-    return;
-  }
+
+  var shown = [];
   for (var i = 0; i < projects.length; i++) {
     var p = projects[i];
-    var done = 0;
-    for (var j = 0; j < p.stages.length; j++) if (p.stages[j].done) done++;
-
-    var div = document.createElement('div');
-    div.className = 'card';
-    div.innerHTML =
-      '<b>' + escapeHtml(p.name) + '</b> <span class="tag">' + p.theme + '</span>' +
-      '<div class="bar"><div class="fill" style="width:' + (done / STAGES.length * 100) + '%"></div></div>' +
-      '<small>进度 ' + done + '/' + STAGES.length + '</small><br>' +
-      '<button onclick="openProject(' + p.id + ')">打开</button>' +
-      '<button onclick="delProject(' + p.id + ')">删除</button>';
-    list.appendChild(div);
+    var okTheme = theme === '全部' || p.theme === theme;
+    var hay = (p.name + ' ' + p.members.join(' ')).toLowerCase();
+    var okKw = !kw || hay.indexOf(kw) >= 0;
+    if (okTheme && okKw) shown.push(p);
   }
+
+  if (sortBy === 'progress') {
+    shown.sort(function(a, b) { return doneCount(b) - doneCount(a); });
+  } else if (sortBy === 'new') {
+    shown.sort(function(a, b) { return b.id - a.id; });
+  } else {
+    shown.sort(function(a, b) { return a.name.localeCompare(b.name, 'zh'); });
+  }
+
+  if (shown.length === 0) {
+    list.innerHTML = '<div class="empty">📭 没有符合的项目，试试别的关键词，或者新建一个吧</div>';
+    return;
+  }
+
+  var html = '';
+  for (var i = 0; i < shown.length; i++) {
+    var p = shown[i];
+    var d = doneCount(p);
+    var pct = Math.round(d / p.stages.length * 100);
+    html += '<div class="proj" onclick="openProject(' + p.id + ')">' +
+      '<div class="top"><span class="name">' + esc(p.name) + '</span>' +
+      '<span class="tag">' + esc(p.theme) + '</span></div>' +
+      '<div class="meta">👥 ' + (p.members.length ? esc(p.members.join('、')) : '（未填写成员）') +
+      '　📅 ' + new Date(p.id).toLocaleDateString() + '</div>' +
+      '<div class="pbar"><span class="pfill" style="width:' + pct + '%"></span></div>' +
+      '<div class="pct">进度 ' + d + '/' + p.stages.length + '（' + pct + '%）' +
+      '　📝 记录 ' + p.records.length + '　⭐ 互评 ' + p.reviews.length + '</div>' +
+      '</div>';
+  }
+  list.innerHTML = html;
 }
 
-// ---------- 打开项目详情 ----------
+// ---------- 打开 / 关闭详情 ----------
 function openProject(id) {
   currentId = id;
   renderDetail();
-  document.getElementById('detail').scrollIntoView();
-}
-
-function delProject(id) {
-  if (!confirm('确定要删除这个项目吗？')) return;
-  var newList = [];
-  for (var i = 0; i < projects.length; i++) {
-    if (projects[i].id !== id) newList.push(projects[i]);
-  }
-  projects = newList;
-  if (currentId === id) currentId = null;
-  save();
-  render();
-  renderDetail();
-}
-
-function renderDetail() {
-  var box = document.getElementById('detail');
-  var p = findProject(currentId);
-  if (!p) { box.innerHTML = ''; return; }
-
-  var html = '<div class="box">';
-  html += '<h2>' + escapeHtml(p.name) + '</h2>';
-  html += '<p>主题：' + p.theme + '　成员：' + (p.members.join('、') || '（未填写）') + '</p>';
-
-  // 1. 项目阶段流程
-  html += '<h3>项目进度</h3>';
-  for (var i = 0; i < p.stages.length; i++) {
-    var s = p.stages[i];
-    html += '<label class="stage ' + (s.done ? 'done' : '') + '">' +
-            '<input type="checkbox" ' + (s.done ? 'checked' : '') +
-            ' onchange="toggleStage(' + p.id + ',' + i + ')"> ' +
-            (i + 1) + '. ' + s.name + '</label>';
-  }
-
-  // 2. 过程记录
-  html += '<h3>过程记录</h3>';
-  html += '<textarea id="recText" placeholder="写点什么，比如今天做了什么、发现了什么"></textarea><br>';
-  html += '<input type="file" id="recFile" accept="image/*">';
-  html += '<button onclick="addRecord(' + p.id + ')">添加记录</button>';
-  for (var k = 0; k < p.records.length; k++) {
-    var r = p.records[k];
-    html += '<div class="rec"><small>' + r.time + '</small><div>' + escapeHtml(r.text) + '</div>';
-    if (r.img) html += '<img src="' + r.img + '">';
-    html += '</div>';
-  }
-
-  // 3. 同伴互评
-  html += '<h3>同伴互评</h3>';
-  html += '<input id="revFrom" placeholder="你的名字">';
-  html += '<select id="revScore">';
-  for (var n = 1; n <= 5; n++) html += '<option value="' + n + '">' + n + ' 星</option>';
-  html += '</select>';
-  html += '<input id="revComment" placeholder="写一句评语">';
-  html += '<button onclick="addReview(' + p.id + ')">提交互评</button>';
-  for (var m = 0; m < p.reviews.length; m++) {
-    var rv = p.reviews[m];
-    html += '<div class="rev">' + escapeHtml(rv.from || '匿名') + '：' +
-            '★'.repeat(rv.score) + ' ' + escapeHtml(rv.comment) + '</div>';
-  }
-
-  // 4. 导师点评
-  html += '<h3>导师点评</h3>';
-  html += '<textarea id="mentorText" placeholder="老师的点评">' + escapeHtml(p.mentor || '') + '</textarea><br>';
-  html += '<button onclick="saveMentor(' + p.id + ')">保存点评</button>';
-
-  // 5. 能力雷达
-  html += '<h3>能力雷达</h3>';
-  html += radarSVG(p.ability, 220);
-  html += '<div style="margin-top:8px">';
-  for (var a = 0; a < ABILITIES.length; a++) {
-    html += '<span class="ab">' + ABILITIES[a] +
-            ' <input id="ab' + a + '" type="number" min="0" max="10" value="' + p.ability[a] + '"></span>';
-  }
-  html += '</div>';
-  html += '<button onclick="saveAbility(' + p.id + ')">保存分数</button>';
-  html += '<button onclick="autoAbility(' + p.id + ')">按进度自动填</button>';
-
-  // 6. 项目档案 + 家长查看
-  html += '<h3>项目档案</h3>';
-  html += '<button onclick="exportArchive(' + p.id + ')">导出档案</button>';
-  html += ' <button onclick="openParent(' + p.id + ')">家长查看页</button>';
-  html += ' <button onclick="closeDetail()">关闭</button>';
-
-  html += '</div>';
-  box.innerHTML = html;
+  document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
 }
 
 function closeDetail() {
@@ -273,12 +426,176 @@ function closeDetail() {
   renderDetail();
 }
 
-// ---------- 各个操作 ----------
+function askDelete(id) {
+  var p = findProject(id);
+  delTargetId = id;
+  document.getElementById('delInfo').textContent = '「' + p.name + '」删除后无法恢复，确定吗？';
+  document.getElementById('mask').className = 'mask show';
+}
+
+function confirmDel() {
+  if (!delTargetId) return;
+  var newList = [];
+  for (var i = 0; i < projects.length; i++) {
+    if (projects[i].id !== delTargetId) newList.push(projects[i]);
+  }
+  projects = newList;
+  if (currentId === delTargetId) currentId = null;
+  save();
+  closeModal();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('已删除');
+}
+
+function closeModal() {
+  delTargetId = null;
+  document.getElementById('mask').className = 'mask';
+}
+
+function maskClick(e) {
+  if (e.target === document.getElementById('mask')) closeModal();
+}
+
+// ---------- 编辑项目资料 ----------
+function editProject(id) {
+  var p = findProject(id);
+  var name = prompt('项目名称', p.name);
+  if (name === null) return;
+  name = name.trim();
+  if (!name) { toast('名称不能为空'); return; }
+  var theme = prompt('主题（未来工厂 / 智慧城市 / 生命盒子 / 自然公社 / 太空码头）', p.theme);
+  if (theme === null) return;
+  theme = theme.trim();
+  if (THEMES.indexOf(theme) < 0) { toast('主题不在可选范围内'); return; }
+  var m = prompt('成员（逗号隔开）', p.members.join('、'));
+  if (m === null) return;
+  p.name = name;
+  p.theme = theme;
+  p.members = m.trim() ? m.trim().split(/[,，、\s]+/) : [];
+  save();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('已保存修改 ✔');
+}
+
+// ---------- 项目详情 ----------
+function renderDetail() {
+  var box = document.getElementById('detail');
+  var p = findProject(currentId);
+  if (!p) { box.innerHTML = ''; return; }
+
+  var d = doneCount(p);
+  var pct = Math.round(d / p.stages.length * 100);
+  var avg = 0;
+  for (var i = 0; i < p.reviews.length; i++) avg += p.reviews[i].score;
+  if (p.reviews.length) avg = (avg / p.reviews.length).toFixed(1);
+
+  var html = '<div class="box">';
+  html += '<div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">';
+  html += '<div><h2 style="margin:0; color:var(--primary);">' + esc(p.name) + '</h2>' +
+          '<p style="margin:6px 0 0; font-size:13px; color:var(--muted);">主题：' + esc(p.theme) +
+          '　👥 成员：' + (p.members.length ? esc(p.members.join('、')) : '（未填写）') + '</p></div>';
+  html += '<div><button class="btn-g" onclick="editProject(' + p.id + ')">✏️ 编辑资料</button> ' +
+          '<button class="btn-danger" onclick="askDelete(' + p.id + ')">删除</button></div>';
+  html += '</div>';
+
+  html += '<div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">' +
+          '<span class="tag">进度 ' + pct + '%</span><span class="tag">记录 ' + p.records.length + ' 条</span>' +
+          '<span class="tag">互评 ★ ' + (p.reviews.length ? avg : '—') + '</span></div>';
+
+  // 1. 项目阶段流程
+  html += '<h3>项目进度</h3>';
+  html += '<div class="pbar" style="margin-bottom:10px;"><span class="pfill" style="width:' + pct + '%"></span></div>';
+  for (var i = 0; i < p.stages.length; i++) {
+    var s = p.stages[i];
+    html += '<label class="stage ' + (s.done ? 'done' : '') + '">' +
+            '<input type="checkbox" ' + (s.done ? 'checked' : '') +
+            ' onchange="toggleStage(' + p.id + ',' + i + ')"> ' +
+            '<span class="sno">' + (i + 1) + '</span> <span class="sname">' + s.name + '</span></label>';
+  }
+
+  // 2. 过程记录（时间线）
+  html += '<h3>过程记录</h3>';
+  html += '<textarea id="recText" placeholder="写点什么，比如今天做了什么、发现了什么"></textarea>';
+  html += '<div style="margin-top:6px;"><input type="file" id="recFile" accept="image/*"> ';
+  html += '<button class="btn-p" onclick="addRecord(' + p.id + ')">＋ 添加记录</button></div>';
+  if (p.records.length === 0) {
+    html += '<p style="color:var(--muted); font-size:13px;">（还没有记录，动手写下第一条吧）</p>';
+  } else {
+    html += '<div class="timeline">';
+    for (var k = p.records.length - 1; k >= 0; k--) {
+      var r = p.records[k];
+      html += '<div class="rec"><span class="time">' + r.time + '</span>' +
+              '<button class="btn-g del" onclick="delRecord(' + p.id + ',' + k + ')">✕</button>' +
+              (r.text ? '<div class="txt">' + esc(r.text) + '</div>' : '') +
+              (r.img ? '<img src="' + r.img + '">' : '') + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // 3. 同伴互评
+  html += '<h3>同伴互评</h3><div class="avg">';
+  html += p.reviews.length ? '共 ' + p.reviews.length + ' 条，平均 ★ ' + avg : '还没有互评，来写下第一条吧';
+  html += '</div>';
+  html += '<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:4px;"><input id="revFrom" placeholder="你的名字">';
+  html += '<select id="revScore">';
+  for (var n = 1; n <= 5; n++) html += '<option value="' + n + '">' + n + ' ★</option>';
+  html += '</select>';
+  html += '<input id="revComment" placeholder="写一句评语" style="flex:1; min-width:140px;">';
+  html += '<button class="btn-p" onclick="addReview(' + p.id + ')">提交互评</button></div>';
+  for (var m = 0; m < p.reviews.length; m++) {
+    var rv = p.reviews[m];
+    html += '<div class="rev"><span class="from">' + esc(rv.from || '匿名') + '</span>' +
+            '<span class="stars">' + '★'.repeat(rv.score || 1) + '</span>' +
+            '<span class="cmt">' + esc(rv.comment) + '</span>' +
+            '<button class="btn-g del" onclick="delReview(' + p.id + ',' + m + ')">✕</button></div>';
+  }
+
+  // 4. 导师点评
+  html += '<h3>导师点评</h3>';
+  html += '<textarea id="mentorText" placeholder="老师的点评">' + esc(p.mentor || '') + '</textarea><br>';
+  html += '<button class="btn-p" onclick="saveMentor(' + p.id + ')">保存点评</button>';
+
+  // 5. 能力雷达（滑杆调节）
+  html += '<h3>能力雷达</h3>';
+  html += '<div style="text-align:center;">' + radarSVG(p.ability, 260) + '</div>';
+  html += '<div style="display:flex; flex-wrap:wrap; justify-content:center; margin-top:4px;">';
+  for (var a = 0; a < ABILITIES.length; a++) {
+    html += '<span class="ab"><span class="abName">' + ABILITIES[a] + '</span>' +
+            '<input id="ab' + a + '" type="range" min="0" max="10" step="1" value="' + p.ability[a] + '"' +
+            ' oninput="setAbilityVal(this.value,' + a + ')">' +
+            '<b id="abv' + a + '">' + p.ability[a] + '</b></span>';
+  }
+  html += '</div>';
+  html += '<div style="text-align:center;">' +
+          '<button class="btn-p" onclick="saveAbility(' + p.id + ')">保存分数</button> ' +
+          '<button class="btn-g" onclick="autoAbility(' + p.id + ')">按进度自动填</button></div>';
+
+  // 6. 档案与输出
+  html += '<h3>项目档案</h3>';
+  html += '<button class="btn-p" onclick="exportHTML(' + p.id + ')">📄 生成精美档案</button> ';
+  html += '<button class="btn-g" onclick="exportTxt(' + p.id + ')">导出 TXT</button> ';
+  html += '<button class="btn-g" onclick="openParent(' + p.id + ')">👨‍👩‍👧 家长查看页</button> ';
+  html += '<button class="btn-g" onclick="closeDetail()">关闭</button>';
+
+  html += '</div>';
+  box.innerHTML = html;
+}
+
+function setAbilityVal(v, a) {
+  document.getElementById('abv' + a).textContent = v;
+}
+
+// ---------- 各操作 ----------
 function toggleStage(id, index) {
   var p = findProject(id);
   p.stages[index].done = !p.stages[index].done;
   save();
-  render();
+  renderStats();
+  renderList();
   renderDetail();
 }
 
@@ -286,7 +603,7 @@ function addRecord(id) {
   var p = findProject(id);
   var text = document.getElementById('recText').value.trim();
   var file = document.getElementById('recFile').files[0];
-  if (!text && !file) { alert('写点内容或选张图片吧'); return; }
+  if (!text && !file) { toast('写点内容或选张图片吧'); return; }
 
   var now = new Date().toLocaleString();
   if (file) {
@@ -294,14 +611,30 @@ function addRecord(id) {
     reader.onload = function (e) {
       p.records.push({ time: now, text: text, img: e.target.result });
       save();
+      renderStats();
+      renderList();
       renderDetail();
+      toast('记录已添加 ✔');
     };
     reader.readAsDataURL(file);
   } else {
     p.records.push({ time: now, text: text, img: '' });
     save();
+    renderStats();
+    renderList();
     renderDetail();
+    toast('记录已添加 ✔');
   }
+}
+
+function delRecord(id, index) {
+  var p = findProject(id);
+  p.records.splice(index, 1);
+  save();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('记录已删除');
 }
 
 function addReview(id) {
@@ -309,19 +642,34 @@ function addReview(id) {
   var from = document.getElementById('revFrom').value.trim();
   var score = Number(document.getElementById('revScore').value);
   var comment = document.getElementById('revComment').value.trim();
+  if (!comment) { toast('写一句评语再提交吧'); return; }
   p.reviews.push({ from: from, score: score, comment: comment });
+  document.getElementById('revComment').value = '';
   save();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('互评已提交 ✔');
+}
+
+function delReview(id, index) {
+  var p = findProject(id);
+  p.reviews.splice(index, 1);
+  save();
+  renderStats();
+  renderList();
   renderDetail();
 }
 
 function saveMentor(id) {
   var p = findProject(id);
-  p.mentor = document.getElementById('mentorText').value;
+  var t = document.getElementById('mentorText').value.trim();
+  p.mentor = t;
   save();
-  alert('点评已保存');
+  if (t) toast('点评已保存 ✔');
+  else toast('点评已清空');
 }
 
-// 保存四个能力分数
 function saveAbility(id) {
   var p = findProject(id);
   for (var a = 0; a < ABILITIES.length; a++) {
@@ -329,56 +677,62 @@ function saveAbility(id) {
   }
   save();
   renderDetail();
+  toast('能力分数已保存 ✔');
 }
 
-// 根据项目情况自动给分（供参考，可以再手动改）
 function autoAbility(id) {
   var p = findProject(id);
-  var done = 0, withImg = 0;
-  for (var i = 0; i < p.stages.length; i++) if (p.stages[i].done) done++;
+  var d = doneCount(p), withImg = 0;
   for (var k = 0; k < p.records.length; k++) if (p.records[k].img) withImg++;
 
-  p.ability[0] = Math.min(10, Math.round(done / p.stages.length * 6) + Math.min(p.records.length, 4));
+  p.ability[0] = Math.min(10, Math.round(d / p.stages.length * 6) + Math.min(p.records.length, 4));
   p.ability[1] = Math.min(10, p.reviews.length + p.members.length);
   p.ability[2] = Math.min(10, 2 + withImg);
   p.ability[3] = p.stages[p.stages.length - 1].done ? 8 : 4;
 
   save();
   renderDetail();
+  toast('已按进度自动填分，可以再手动微调');
 }
 
-// ---------- 家长查看页（只读，新窗口打开） ----------
+// ---------- 家长查看页（只读，新窗口） ----------
 function openParent(id) {
   var p = findProject(id);
-  var done = 0;
-  for (var i = 0; i < p.stages.length; i++) if (p.stages[i].done) done++;
-
+  var d = doneCount(p);
   var h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">';
   h += '<title>家长查看 - ' + p.name + '</title>';
-  h += '<style>body{font-family:"Microsoft YaHei",sans-serif;max-width:720px;margin:24px auto;padding:0 16px;color:#333}';
-  h += 'h1{color:#2a6df4}h2{border-left:4px solid #2a6df4;padding-left:8px}';
-  h += '.item{background:#f7f9fc;border-radius:6px;padding:8px;margin:6px 0}small{color:#999}</style></head><body>';
-  h += '<h1>' + escapeHtml(p.name) + ' · 成长档案</h1>';
-  h += '<p>主题：' + p.theme + '　成员：' + (p.members.join('、') || '（未填写）') + '</p>';
-  h += '<p>项目进度：' + done + '/' + p.stages.length + '</p>';
+  h += '<style>body{font-family:"Microsoft YaHei",sans-serif;max-width:760px;margin:0 auto;padding:24px 16px;color:#1c2333;background:#eef2fb}';
+  h += '.card{background:#fff;border-radius:14px;padding:16px;margin:12px 0;box-shadow:0 2px 8px rgba(30,50,100,.08)}';
+  h += 'h1{background:linear-gradient(135deg,#3b5bdb,#7048e8);color:#fff;border-radius:14px;padding:20px;margin:0}';
+  h += 'h2{color:#3b5bdb;font-size:16px;border-left:4px solid #7048e8;padding-left:8px;margin-top:0}';
+  h += '.item{background:#f7f9fd;border-radius:10px;padding:8px 10px;margin:6px 0;font-size:14px}';
+  h += 'small{color:#7a8699;font-size:12px}.stars{color:#fab005}</style></head><body>';
+  h += '<h1>🛰️ ' + esc(p.name) + ' · 成长档案</h1>';
+  h += '<div class="card"><p style="margin:4px 0;">主题：' + esc(p.theme) +
+       '　👥 成员：' + (p.members.length ? esc(p.members.join('、')) : '（未填写）') + '</p>';
+  h += '<p style="margin:4px 0; color:#7a8699;">项目进度：' + d + '/' + p.stages.length + '</p></div>';
 
-  h += '<h2>能力雷达</h2>' + radarSVG(p.ability, 240);
+  h += '<div class="card" style="text-align:center;"><h2>能力雷达</h2>' + radarSVG(p.ability, 260) + '</div>';
 
-  h += '<h2>过程记录（' + p.records.length + ' 条）</h2>';
-  if (p.records.length === 0) h += '<p>（还没有记录）</p>';
-  for (var k = 0; k < p.records.length; k++) {
+  h += '<div class="card"><h2>过程记录（' + p.records.length + ' 条）</h2>';
+  if (p.records.length === 0) h += '<p style="color:#7a8699;">（还没有记录）</p>';
+  for (var k = p.records.length - 1; k >= 0; k--) {
     h += '<div class="item"><small>' + p.records[k].time + '</small><div>' +
-         escapeHtml(p.records[k].text) + '</div></div>';
+         esc(p.records[k].text) + '</div>' +
+         (p.records[k].img ? '<img src="' + p.records[k].img + '" style="max-width:200px;border-radius:10px;margin-top:8px;">' : '') + '</div>';
   }
+  h += '</div>';
 
-  h += '<h2>同伴互评</h2>';
-  if (p.reviews.length === 0) h += '<p>（还没有互评）</p>';
+  h += '<div class="card"><h2>同伴互评</h2>';
+  if (p.reviews.length === 0) h += '<p style="color:#7a8699;">（还没有互评）</p>';
   for (var m = 0; m < p.reviews.length; m++) {
-    h += '<div class="item">' + escapeHtml(p.reviews[m].from || '匿名') + '：' +
-         '★'.repeat(p.reviews[m].score) + ' ' + escapeHtml(p.reviews[m].comment) + '</div>';
+    h += '<div class="item">' + esc(p.reviews[m].from || '匿名') + '：' +
+         '<span class="stars">' + '★'.repeat(p.reviews[m].score || 1) + '</span> ' +
+         esc(p.reviews[m].comment) + '</div>';
   }
+  h += '</div>';
 
-  h += '<h2>导师点评</h2><p>' + (p.mentor ? escapeHtml(p.mentor) : '（暂无）') + '</p>';
+  h += '<div class="card"><h2>导师点评</h2><p>' + (p.mentor ? esc(p.mentor) : '（暂无）') + '</p></div>';
   h += '</body></html>';
 
   var w = window.open('', '_blank');
@@ -386,10 +740,79 @@ function openParent(id) {
   w.document.close();
 }
 
-// ---------- 导出项目档案 ----------
-function exportArchive(id) {
+// ---------- 导出精美 HTML 档案（可打印 / 存 PDF） ----------
+function exportHTML(id) {
   var p = findProject(id);
-  var t = '【项目档案】\n';
+  var d = doneCount(p);
+  var pct = Math.round(d / p.stages.length * 100);
+  var avg = 0;
+  for (var m = 0; m < p.reviews.length; m++) avg += p.reviews[m].score;
+  if (p.reviews.length) avg = (avg / p.reviews.length).toFixed(1);
+
+  var h = '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="UTF-8">';
+  h += '<title>档案 - ' + p.name + '</title>';
+  h += '<style>';
+  h += 'body{font-family:"Microsoft YaHei",sans-serif;max-width:760px;margin:0 auto;padding:28px 20px;color:#1c2333}';
+  h += '@media print{body{padding:0}}';
+  h += 'h1{color:#3b5bdb;border-bottom:3px solid #7048e8;padding-bottom:10px}';
+  h += 'h2{color:#3b5bdb;font-size:16px;margin-top:26px}';
+  h += '.row{display:flex;gap:10px;flex-wrap:wrap}.chip{background:#eef3ff;color:#3b5bdb;border-radius:20px;padding:4px 12px;font-size:13px}';
+  h += '.stage{display:flex;justify-content:space-between;padding:6px 10px;margin:4px 0;background:#f4f7fd;border-radius:8px;font-size:14px}';
+  h += '.ok{color:#2b8a3e;font-weight:700}';
+  h += '.rec{position:relative;border-left:2px solid #7048e8;padding:4px 0 4px 14px;margin:10px 0}';
+  h += 'img{max-width:200px;border-radius:8px;margin-top:6px}';
+  h += 'small{color:#7a8699}.stars{color:#fab005}';
+  h += '.btn{background:linear-gradient(135deg,#3b5bdb,#7048e8);color:#fff;border:none;padding:10px 18px;border-radius:10px;cursor:pointer;font-size:14px}';
+  h += '@media print{.btn{display:none}}';
+  h += '</style></head><body>';
+  h += '<button class="btn" onclick="window.print()">🖨️ 打印 / 存成 PDF</button>';
+  h += '<h1>🧪 科创项目档案</h1>';
+  h += '<p style="color:#7a8699;">生成时间：' + new Date().toLocaleString() + '</p>';
+  h += '<h2>项目信息</h2>';
+  h += '<p><b>' + esc(p.name) + '</b>　主题：' + esc(p.theme) + '</p>';
+  h += '<p>👥 成员：' + (p.members.length ? esc(p.members.join('、')) : '（未填写）') + '</p>';
+  h += '<div class="row">';
+  h += '<span class="chip">📈 进度 ' + pct + '%</span>';
+  h += '<span class="chip">📝 记录 ' + p.records.length + ' 条</span>';
+  h += '<span class="chip">⭐ 互评平均 ' + (p.reviews.length ? avg : '—') + '</span>';
+  h += '</div>';
+
+  h += '<h2>阶段进度（' + d + '/' + p.stages.length + '）</h2>';
+  for (var i = 0; i < p.stages.length; i++) {
+    h += '<div class="stage"><span>' + (i + 1) + '. ' + p.stages[i].name + '</span>' +
+         (p.stages[i].done ? '<span class="ok">已完成 ✔</span>' : '<span style="color:#7a8699;">未完成</span>') + '</div>';
+  }
+
+  h += '<h2>能力雷达</h2><div style="text-align:center;">' + radarSVG(p.ability, 260) + '</div>';
+
+  h += '<h2>过程记录</h2>';
+  if (p.records.length === 0) h += '<p style="color:#7a8699;">（暂无）</p>';
+  for (var k = 0; k < p.records.length; k++) {
+    h += '<div class="rec"><small>' + p.records[k].time + '</small>' +
+         (p.records[k].text ? '<div>' + esc(p.records[k].text) + '</div>' : '') +
+         (p.records[k].img ? '<img src="' + p.records[k].img + '">' : '') + '</div>';
+  }
+
+  h += '<h2>同伴互评</h2>';
+  if (p.reviews.length === 0) h += '<p style="color:#7a8699;">（暂无）</p>';
+  for (var m = 0; m < p.reviews.length; m++) {
+    h += '<div class="rec"><b>' + esc(p.reviews[m].from || '匿名') + '</b> ' +
+         '<span class="stars">' + '★'.repeat(p.reviews[m].score || 1) + '</span> ' +
+         esc(p.reviews[m].comment) + '</div>';
+  }
+
+  h += '<h2>导师点评</h2><p>' + (p.mentor ? esc(p.mentor) : '（暂无）') + '</p>';
+  h += '</body></html>';
+
+  var w = window.open('', '_blank');
+  w.document.write(h);
+  w.document.close();
+}
+
+// ---------- 导出 TXT ----------
+function exportTxt(id) {
+  var p = findProject(id);
+  var t = '【科创项目档案】\n';
   t += '项目名称：' + p.name + '\n';
   t += '主题：' + p.theme + '\n';
   t += '成员：' + (p.members.join('、') || '（未填写）') + '\n\n';
@@ -412,7 +835,7 @@ function exportArchive(id) {
 
   t += '\n【同伴互评】\n';
   for (var m = 0; m < p.reviews.length; m++) {
-    t += (p.reviews[m].from || '匿名') + '：' + '★'.repeat(p.reviews[m].score) +
+    t += (p.reviews[m].from || '匿名') + '：' + '★'.repeat(p.reviews[m].score || 1) +
          ' ' + p.reviews[m].comment + '\n';
   }
 
@@ -425,8 +848,9 @@ function exportArchive(id) {
   a2.click();
 }
 
-// 页面打开时先显示已有项目
-render();
+// 页面打开时先渲染
+renderStats();
+renderList();
 </script>
 </body>
 </html>
