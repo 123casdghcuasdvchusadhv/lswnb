@@ -807,6 +807,8 @@ function editProject(id) {
 }
 
 // ---------- 项目详情 ----------
+var tmpAbility = [];   // 滑杆拖动时的临时分数（未点保存前不写入项目）
+
 function renderDetail() {
   var box = document.getElementById('detail');
   var p = findProject(currentId);
@@ -819,6 +821,7 @@ function renderDetail() {
   if (p.reviews.length) avg = (avg / p.reviews.length).toFixed(1);
 
   var html = '<div class="box">';
+  tmpAbility = p.ability.slice();
   html += '<div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">';
   html += '<div><h2 style="margin:0; color:var(--primary);">' + esc(p.name) + '</h2>' +
           '<p style="margin:6px 0 0; font-size:13px; color:var(--muted);">主题：' + esc(p.theme) +
@@ -893,7 +896,7 @@ function renderDetail() {
 
   // 5. 能力雷达（滑杆调节）
   html += '<h3>能力雷达</h3>';
-  html += '<div style="text-align:center;">' + radarSVG(p.ability, 260) + '</div>';
+  html += '<div id="radarBox" style="text-align:center;">' + radarSVG(p.ability, 260) + '</div>';
   html += '<div style="display:flex; flex-wrap:wrap; justify-content:center; margin-top:4px;">';
   for (var a = 0; a < ABILITIES.length; a++) {
     html += '<span class="ab"><span class="abName">' + ABILITIES[a] + '</span>' +
@@ -919,6 +922,10 @@ function renderDetail() {
 
 function setAbilityVal(v, a) {
   document.getElementById('abv' + a).textContent = v;
+  tmpAbility[a] = Number(v) || 0;
+  // 拖动时实时重画雷达图，让图形跟着手走
+  var rb = document.getElementById('radarBox');
+  if (rb) rb.innerHTML = radarSVG(tmpAbility, 260);
 }
 
 // ---------- 各操作 ----------
