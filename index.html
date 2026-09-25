@@ -173,6 +173,54 @@
     padding:2px 8px; border-radius:20px; vertical-align:2px; margin-left:4px;
   }
 
+  /* AI 助教：悬浮聊天窗 */
+  #aiFab {
+    position:fixed; right:18px; bottom:18px; z-index:98;
+    background:linear-gradient(135deg,#3b5bdb,#7048e8); color:#fff;
+    border:none; width:56px; height:56px; border-radius:50%;
+    font-size:24px; cursor:pointer; box-shadow:0 8px 20px rgba(59,91,219,.4);
+    transition:transform .15s;
+  }
+  #aiFab:hover { transform:scale(1.08); }
+  #aiPanel {
+    position:fixed; right:18px; bottom:86px; z-index:97;
+    width:340px; max-width:92vw; height:460px; max-height:70vh;
+    background:#fff; border-radius:16px; box-shadow:0 16px 40px rgba(20,30,60,.3);
+    display:none; flex-direction:column; overflow:hidden;
+  }
+  #aiPanel.show { display:flex; animation:pop .2s ease; }
+  #aiHead {
+    background:linear-gradient(135deg,#3b5bdb,#7048e8); color:#fff; padding:10px 14px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  #aiHead h4 { margin:0; font-size:15px; }
+  #aiHead small { opacity:.85; font-size:11px; }
+  #aiHead button { background:none; border:none; color:#fff; font-size:18px; cursor:pointer; }
+  #aiMsgs { flex:1; overflow-y:auto; padding:12px; background:#f5f7ff; }
+  .aiBub {
+    max-width:85%; padding:9px 12px; border-radius:14px;
+    font-size:13px; line-height:1.7; margin:6px 0;
+    white-space:pre-wrap; word-break:break-word;
+  }
+  .aiBub.ai { background:#fff; border:1px solid #e3e8f5; border-top-left-radius:4px; }
+  .aiBub.me { background:#3b5bdb; color:#fff; margin-left:auto; border-top-right-radius:4px; }
+  .typing { color:#7a8699; font-size:12px; padding:4px 2px; }
+  #aiChips { display:flex; flex-wrap:wrap; gap:6px; padding:8px 10px 0; background:#f5f7ff; }
+  #aiChips button {
+    border:1px solid #c8d2f0; background:#fff; color:#3b5bdb; font-size:12px;
+    padding:5px 10px; border-radius:20px; cursor:pointer;
+  }
+  #aiChips button:hover { background:#eef2ff; }
+  #aiInputRow { display:flex; gap:8px; padding:10px; background:#fff; }
+  #aiInputRow input {
+    flex:1; border:1px solid #dbe2f5; border-radius:20px; padding:8px 14px;
+    font-size:13px; outline:none;
+  }
+  #aiInputRow input:focus { border-color:#3b5bdb; }
+  #aiSend { background:#3b5bdb; color:#fff; border:none; border-radius:20px; padding:8px 16px; cursor:pointer; font-size:13px; }
+  #aiMsgs::-webkit-scrollbar { width:5px; }
+  #aiMsgs::-webkit-scrollbar-thumb { background:#c8d2f0; border-radius:3px; }
+
   /* 提示条 */
   #toast {
     position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(80px);
@@ -243,6 +291,21 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- AI 助教：悬浮聊天窗 -->
+<button id="aiFab" onclick="aiToggle()" title="问 AI 助教">🤖</button>
+<div id="aiPanel">
+  <div id="aiHead">
+    <div><h4>🤖 AI 助教</h4><small>离线问答 · 演示版 · 不联网</small></div>
+    <button onclick="aiToggle()">✕</button>
+  </div>
+  <div id="aiMsgs"></div>
+  <div id="aiChips"></div>
+  <div id="aiInputRow">
+    <input id="aiInput" placeholder="问点什么…（回车发送）" onkeydown="if(event.key==='Enter')aiSend()">
+    <button id="aiSend" onclick="aiSend()">发送</button>
+  </div>
+</div>
 
 <script>
 // ---------- 数据 ----------
@@ -1218,6 +1281,145 @@ function exportTxt(id) {
   a2.href = URL.createObjectURL(blob);
   a2.download = p.name + '_项目档案.txt';
   a2.click();
+}
+
+// ---------- AI 助教（离线问答聊天窗，模拟 DeepSeek 式对话） ----------
+var aiMsgs = [];          // 对话记录 [{role:'me'|'ai', text}]
+var aiTypingOn = false;
+
+function aiToggle() {
+  var p = document.getElementById('aiPanel');
+  var isShow = p.className.indexOf('show') >= 0;
+  p.className = isShow ? '' : 'show';
+  if (!isShow && aiMsgs.length === 0) {
+    aiMsgs.push({ role: 'ai', text: '你好呀！我是星迹的 AI 助教。你可以问我怎么做项目、怎么用这个软件；打开一个项目后，还能让我「看看你的项目」或帮你写简介。试试下面的快捷问题：' });
+    aiRender();
+  }
+  document.getElementById('aiInput').focus();
+}
+
+function aiRender() {
+  var m = document.getElementById('aiMsgs');
+  var h = '';
+  for (var i = 0; i < aiMsgs.length; i++) {
+    h += '<div class="aiBub ' + (aiMsgs[i].role === 'me' ? 'me' : 'ai') + '">' + esc(aiMsgs[i].text) + '</div>';
+  }
+  if (aiTypingOn) h += '<div class="typing">AI 助教正在想…</div>';
+  m.innerHTML = h;
+  m.scrollTop = m.scrollHeight;
+}
+
+function aiChips(list) {
+  var h = '';
+  for (var i = 0; i < list.length; i++) {
+    h += '<button onclick="aiChip(\'' + list[i] + '\')">' + esc(list[i]) + '</button>';
+  }
+  document.getElementById('aiChips').innerHTML = h;
+}
+
+function aiQuickChips() {
+  var p = findProject(currentId);
+  if (p) return ['帮我看看我的项目', '帮我写项目简介', '下一步该做什么', '什么是同伴互评'];
+  return ['怎么完成一个科创项目', '有哪些主题可以选', '什么是同伴互评', '怎么导出档案'];
+}
+
+function aiChip(t) {
+  aiMsgs.push({ role: 'me', text: t });
+  aiRender();
+  aiAnswer(t);
+}
+
+function aiSend() {
+  var inp = document.getElementById('aiInput');
+  var t = inp.value.trim();
+  if (!t) return;
+  inp.value = '';
+  aiMsgs.push({ role: 'me', text: t });
+  aiRender();
+  aiAnswer(t);
+}
+
+// 假装"思考"一会儿再回答
+function aiAnswer(t) {
+  aiTypingOn = true;
+  aiRender();
+  setTimeout(function () {
+    aiTypingOn = false;
+    aiMsgs.push({ role: 'ai', text: aiAsk(t) });
+    aiRender();
+    aiChips(aiQuickChips());
+  }, 400);
+}
+
+// 离线问答库：按关键词打分，选最匹配的一条
+function aiAsk(t) {
+  var p = findProject(currentId);
+  var txt = t.replace(/\s+/g, '').toLowerCase();
+
+  var table = [
+    { keys: ['看看我的项目', '我的项目怎么样', '进展'], out: function () { return p ? aiProgress(p) : '先点开一个项目（在列表里点它的名字），然后我再帮你分析。' } },
+    { keys: ['写项目简介', '简介', '介绍'], out: function () { return p ? aiIntro(p) : '先点开一个项目，我就能根据它的主题、进度和记录帮你写一段简介。' } },
+    { keys: ['下一步', '接下来', '该做什么'], out: function () { return p ? aiNext(p) : '先点开一个项目，我告诉你下一步该做什么。' } },
+    { keys: ['计划', '安排', '时间', '完成'], out: function () { return '一个科创项目通常分 5 步走：\n①提出问题（写清现象和想解决的问题）\n②设计方案（材料、步骤、分工、预算）\n③记录数据（每天固定时间记，多拍照）\n④分析结论（比较数据，找规律）\n⑤成果展示（讲解+视频+海报）\n在「星迹」里，每一步都对应一个阶段，做完就勾掉。' } },
+    { keys: ['主题', '选题', '选什么'], out: function () { return '目前有 5 个主题可选：\n· 未来工厂（自动分拣、噪音报警、传送带节能…）\n· 智慧城市（自动浇花、声控灯、雨伞柜、垃圾桶提醒…）\n· 生命盒子（孵化器、水质监测、豆芽对比、缺水报警…）\n· 自然公社（雨水收集、堆肥箱、鸟窝温度计…）\n· 太空码头（太阳系模型、太空菜园、陨石报警…）\n选一个你每天都能看到、愿意观察的方向，就是好主题。' } },
+    { keys: ['提出问题', '怎么写问题', '问题怎么'], out: function () { return aiStage(0); } },
+    { keys: ['设计', '方案'], out: function () { return aiStage(1); } },
+    { keys: ['记录', '数据', '观察'], out: function () { return aiStage(2); } },
+    { keys: ['结论', '分析', '总结'], out: function () { return aiStage(3); } },
+    { keys: ['展示', '成果', '视频', '比赛', '演讲'], out: function () { return aiStage(4); } },
+    { keys: ['互评', '评分', '打分', '评'], out: function () { return '同伴互评是星迹的特色：项目完成或进行中，邀请同学给你打 1-5 星并留言。\n· 每个人都能看到大家的评价\n· 互评次数会算进「协作」能力分\n· 一句「哪里还能改进」比满分更值钱\n在项目详情里往下滚，找到「同伴互评」就能评。' } },
+    { keys: ['雷达', '能力', '分数'], out: function () { return '能力雷达有 4 个维度：探究、协作、创新、表达。\n· 拖动滑杆就能调分，雷达图会跟着动\n· 点「按进度自动填」，程序根据完成度、记录数、互评数自动估分\n· 分数存在项目里，导出档案时会一起带走' } },
+    { keys: ['档案', '导出', '家长', '打印', 'pdf'], out: function () { return '项目详情页底部有 3 个按钮：\n· 生成精美档案：做成一页漂亮的可打印报告（选打印就能存成 PDF）\n· 导出 TXT：纯文字版，方便复制\n· 家长查看页：给爸爸妈妈看的只读页面，还有「AI 给家长的话」' } },
+    { keys: ['注册', '登录', '账号', '密码'], out: function () { return '点右上角「注册」建账号，之后点「登录」进自己的空间。\n· 每个人的项目数据互相隔离\n· 密码做了加密存储，连续输错 3 次会锁 30 秒\n· 不勾「记住我」的话，关掉浏览器就自动退出\n（演示版账号存在本机浏览器，换电脑看不到，正式版要接服务器）' } },
+    { keys: ['你好', '您好', 'hi', 'hello', '在吗', '谢谢'], out: function () { return '你好呀！我现在是离线演示版，靠内置知识库回答。你可以问：怎么完成项目、有哪些主题、什么是互评……也可以打开一个项目让我帮你分析。' } }
+  ];
+
+  var best = null, bestScore = 0;
+  for (var i = 0; i < table.length; i++) {
+    var score = 0;
+    for (var k = 0; k < table[i].keys.length; k++) {
+      if (txt.indexOf(table[i].keys[k]) >= 0) score += table[i].keys[k].length;
+    }
+    if (score > bestScore) { bestScore = score; best = table[i]; }
+  }
+  if (best) return best.out();
+  return '这个问题超出我的离线知识库啦（我是演示版，不联网）。你可以换个问法，比如：\n· 「怎么完成一个科创项目」\n· 「有哪些主题可以选」\n· 打开项目后问我「帮我看看我的项目」';
+}
+
+function aiProgress(p) {
+  var d = doneCount(p);
+  var pct = Math.round(d / p.stages.length * 100);
+  var s = '《' + p.name + '》：' + p.theme + '主题，目前完成 ' + d + '/' + p.stages.length + ' 步（' + pct + '%）。';
+  var nextIdx = -1;
+  for (var i = 0; i < p.stages.length; i++) { if (!p.stages[i].done) { nextIdx = i; break; } }
+  if (nextIdx >= 0) s += '\n下一步是「' + p.stages[nextIdx].name + '」。' + aiStage(nextIdx);
+  else s += '\n五个阶段全部完成！记得导出档案、邀请同学互评。';
+  if (p.reviews.length) s += '\n收到 ' + p.reviews.length + ' 条互评，平均 ' + (p.reviews.reduce(function (a, r) { return a + r.score; }, 0) / p.reviews.length).toFixed(1) + ' 星。';
+  return s;
+}
+
+function aiIntro(p) {
+  var d = doneCount(p);
+  var pct = Math.round(d / p.stages.length * 100);
+  var s = '《' + p.name + '》是一个「' + p.theme + '」主题的科创项目，目前完成了 ' + d + '/' + p.stages.length + ' 个阶段（' + pct + '%）。';
+  if (p.stages[0].note) s += '\n小组关注的问题是：' + p.stages[0].note;
+  var nextIdx = -1;
+  for (var i = 0; i < p.stages.length; i++) { if (!p.stages[i].done) { nextIdx = i; break; } }
+  s += '\n下一步按计划是「' + (nextIdx >= 0 ? p.stages[nextIdx].name : '成果打磨与互评') + '」。';
+  if (p.members.length) s += '\n参与成员：' + p.members.join('、') + '。';
+  return s;
+}
+
+function aiNext(p) {
+  var nextIdx = -1;
+  for (var i = 0; i < p.stages.length; i++) { if (!p.stages[i].done) { nextIdx = i; break; } }
+  if (nextIdx < 0) return '五个阶段全完成啦！建议：导出精美档案 + 邀请 3 位同学互评 + 录一段 1 分钟讲解视频。';
+  return '下一步是「' + p.stages[nextIdx].name + '」。' + aiStage(nextIdx);
+}
+
+function aiStage(i) {
+  var tips = AI_STAGE_TIPS[i];
+  return tips.join('\n');
 }
 
 // 页面打开时先渲染
