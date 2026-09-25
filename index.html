@@ -235,6 +235,13 @@ var delTargetId = null;
 
 var THEMES = ['未来工厂','智慧城市','生命盒子','自然公社','太空码头'];
 var STAGES = ['提出问题','设计方案','记录数据','分析结论','成果展示'];
+var STAGE_NOTES = [
+  '在这里写下你的问题，比如：怎么让花盆自动浇水？',
+  '你的方案是什么？比如：用传感器和定时器实现自动浇水',
+  '记下你观察到的数据，比如：第3天叶片全部舒展',
+  '得出什么结论？比如：定时浇水比手工浇水更省水',
+  '成果打算怎么展示？比如：做个模型并录制讲解视频'
+];
 var ABILITIES = ['探究','协作','创新','表达'];
 
 function save() {
@@ -519,11 +526,10 @@ function renderDetail() {
             '<input type="checkbox" ' + (s.done ? 'checked' : '') +
             ' onchange="toggleStage(' + p.id + ',' + i + ')"> ' +
             '<span class="sno">' + (i + 1) + '</span> <span class="sname">' + s.name + '</span></label>';
-    if (i === 0) {
-      html += '<div style="margin:0 0 8px 34px;">' +
-              '<input id="q' + p.id + '" style="width:92%; max-width:520px;" placeholder="在这里写下你的问题，比如：怎么让花盆自动浇水？" value="' +
-              escAttr(s.note || '') + '" onchange="saveQuestion(' + p.id + ', this.value)"></div>';
-    }
+    html += '<div style="margin:0 0 8px 34px;">' +
+            '<input id="q' + p.id + '_' + i + '" style="width:92%; max-width:520px;" placeholder="' +
+            STAGE_NOTES[i] + '" value="' + escAttr(s.note || '') +
+            '" onchange="saveStageNote(' + p.id + ',' + i + ', this.value)"></div>';
   }
 
   // 2. 过程记录（时间线）
@@ -608,12 +614,12 @@ function toggleStage(id, index) {
   renderDetail();
 }
 
-// 保存「提出问题」这一步里填的具体问题
-function saveQuestion(id, text) {
+// 保存每一步里填写的具体内容（提出问题这一步填的就是问题）
+function saveStageNote(id, index, text) {
   var p = findProject(id);
-  p.stages[0].note = text.trim();
+  p.stages[index].note = text.trim();
   save();
-  toast('问题已保存 ✔');
+  toast('已保存 ✔');
 }
 
 function addRecord(id) {
@@ -727,9 +733,16 @@ function openParent(id) {
   h += '<h1>🛰️ ' + esc(p.name) + ' · 成长档案</h1>';
   h += '<div class="card"><p style="margin:4px 0;">主题：' + esc(p.theme) +
        '　👥 成员：' + (p.members.length ? esc(p.members.join('、')) : '（未填写）') + '</p>';
-  h += '<p style="margin:4px 0; color:#7a8699;">项目进度：' + d + '/' + p.stages.length + '</p>';
-  if (p.stages[0].note) {
-    h += '<p style="margin:4px 0; color:#3b5bdb;"><b>核心问题：</b>' + esc(p.stages[0].note) + '</p>';
+  h += '<p style="margin:4px 0; color:#7a8699;">项目进度：' + d + '/' + p.stages.length + '</p></div>';
+
+  h += '<div class="card"><h2>项目阶段</h2>';
+  for (var i = 0; i < p.stages.length; i++) {
+    h += '<div class="item"><b>' + (i + 1) + '. ' + p.stages[i].name + '</b> ' +
+         (p.stages[i].done ? '<span style="color:#2b8a3e;">已完成</span>' : '<span style="color:#7a8699;">未完成</span>') + '</div>';
+    if (p.stages[i].note) {
+      h += '<div class="item" style="margin-left:24px; color:#3b5bdb;">' +
+           (i === 0 ? '问题：' : '内容：') + esc(p.stages[i].note) + '</div>';
+    }
   }
   h += '</div>';
 
@@ -802,8 +815,9 @@ function exportHTML(id) {
   for (var i = 0; i < p.stages.length; i++) {
     h += '<div class="stage"><span>' + (i + 1) + '. ' + p.stages[i].name + '</span>' +
          (p.stages[i].done ? '<span class="ok">已完成 ✔</span>' : '<span style="color:#7a8699;">未完成</span>') + '</div>';
-    if (i === 0 && p.stages[i].note) {
-      h += '<p style="color:#3b5bdb; font-size:14px;">问题：' + esc(p.stages[i].note) + '</p>';
+    if (p.stages[i].note) {
+      h += '<p style="color:#3b5bdb; font-size:14px;">' + (i === 0 ? '问题' : '内容') +
+           '：' + esc(p.stages[i].note) + '</p>';
     }
   }
 
@@ -844,7 +858,7 @@ function exportTxt(id) {
   t += '【阶段进度】\n';
   for (var i = 0; i < p.stages.length; i++) {
     t += (i + 1) + '. ' + p.stages[i].name + (p.stages[i].done ? ' 已完成' : ' 未完成');
-    if (i === 0 && p.stages[i].note) t += '（问题：' + p.stages[i].note + '）';
+    if (p.stages[i].note) t += (i === 0 ? '（问题：' : '（内容：') + p.stages[i].note + '）';
     t += '\n';
   }
 
