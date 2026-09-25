@@ -236,7 +236,7 @@
 
 <script>
 // ---------- 数据 ----------
-var currentUser = localStorage.getItem('ct_login') || '';
+var currentUser = localStorage.getItem('ct_login') || sessionStorage.getItem('ct_login_s') || '';
 var projects = JSON.parse(localStorage.getItem(currentUser ? 'ct_' + currentUser : 'ctProjects') || '[]');
 var currentId = null;
 var delTargetId = null;
@@ -259,13 +259,24 @@ function save() {
 // ---------- 账户（注册 / 登录 / 退出） ----------
 var userNames = JSON.parse(localStorage.getItem('ct_users') || '{}');
 
-// 密码做一次简单的不可逆处理（演示用；正式上线要换成专业加密方式）
-function hashPass(txt) {
-  var h = 7;
-  for (var i = 0; i < txt.length; i++) {
-    h = ((h << 5) - h + txt.charCodeAt(i)) | 0;
-  }
-  return String(h);
+// 防爆破：连续输错 3 次，锁 30 秒
+var failTimes = 0, lockUntil = 0;
+
+// ---------- 密码加密（PBKDF2：随机盐 + SHA-256 + 10万次迭代） ----------
+function randSalt() {
+  var a = new Uint8Array(16);
+  crypto.getRandomValues(a);
+  return btoa(String.fromCharCode.apply(null, a));
+}
+
+async function deriveKey(pass, salt) {
+  var enc = new TextEncoder();
+  var km = await crypto.subtle.importKey(
+    'raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
+  var bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
+    km, 256);
+  return btoa(String.fromCharCode.apply(null, new Uint8Array(bits)));
 }
 
 function renderUser() {
@@ -285,50 +296,97 @@ function openAccount(mode) {
     b.innerHTML = '<h4>🔑 登录</h4>' +
       '<input id="acUser" type="text" placeholder="用户名">' +
       '<input id="acPass" type="password" placeholder="密码">' +
+      '<label class="tips" style="display:block;margin-top:8px;">' +
+      '<input type="checkbox" id="acRemember"> 记住我（不勾选时，关掉浏览器就自动退出）</label>' +
       '<div style="margin-top:12px; text-align:right;">' +
       '<button class="btn-g" onclick="closeModal()">取消</button> ' +
       '<button class="btn-p" onclick="doLogin()">登录</button></div>' +
-      '<p class="tips">还没有账号？<a href="javascript:void(0)" onclick="openAccount(\'reg\')">去注册</a></p>';
+      '<p class="tips">还没有账号？<a href="javascript:void(0)" onclick="openAccount(\'reg\')">去注册</a></p>' +
+      '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，换电脑看不到；正式上线需要服务器。</p>';
   } else {
     b.innerHTML = '<h4>✨ 注册</h4>' +
-      '<input id="acUser" type="text" placeholder="用户名（至少2个字符）">' +
-      '<input id="acPass" type="password" placeholder="密码（至少4位）">' +
+      '<input id="acUser" type="text" placeholder="用户名：2-16位，中英文、数字、下划线">' +
+      '<input id="acPass" type="password" placeholder="密码：至少6位，含字母和数字">' +
       '<input id="acPass2" type="password" placeholder="再输一次密码">' +
       '<div style="margin-top:12px; text-align:right;">' +
       '<button class="btn-g" onclick="closeModal()">取消</button> ' +
-      '<button class="btn-p" onclick="doReg()">注册</button></div>';
+      '<button class="btn-p" onclick="doReg()">注册</button></div>' +
+      '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，正式上线需要服务器数据库。</p>';
   }
   document.getElementById('mask').className = 'mask show';
 }
 
-function doLogin() {
+async function doLogin() {
+  var secsLeft = lockUntil - Date.now();
+  if (secsLeft > 0) { toast('尝试太多次，请 ' + Math.ceil(secsLeft / 1000) + ' 秒后再试'); return; }
   var u = document.getElementById('acUser').value.trim();
   var p = document.getElementById('acPass').value;
   if (!u || !p) { toast('请填写用户名和密码'); return; }
-  if (!userNames[u] || userNames[u].hash !== hashPass(p)) { toast('用户名或密码不对'); return; }
-  applyAccount(u);
+  var rec = userNames[u];
+  if (!rec) {
+    var locked2 = loginFail();
+    closeModal();
+    toast(locked2 ? '连续输错 3 次，锁定 30 秒' : '用户名或密码不对');
+    return;
+  }
+  var ok;
+  if (rec.s) {
+    // 新版：PBKDF2 验证
+    ok = (await deriveKey(p, rec.s)) === rec.h;
+  } else {
+    // 旧版账号（之前存的简单哈希）：验证通过后自动升级为新加密
+    var h = 7;
+    for (var i = 0; i < p.length; i++) { h = ((h << 5) - h + p.charCodeAt(i)) | 0; }
+    if (String(h) === rec.hash) {
+      var ns = randSalt();
+      userNames[u] = { s: ns, h: await deriveKey(p, ns), created: rec.created || Date.now() };
+      localStorage.setItem('ct_users', JSON.stringify(userNames));
+      ok = true;
+    } else { ok = false; }
+  }
+  if (!ok) {
+    var locked = loginFail();
+    closeModal();
+    toast(locked ? '连续输错 3 次，锁定 30 秒' : '用户名或密码不对');
+    return;
+  }
+  failTimes = 0;
+  applyAccount(u, !!(document.getElementById('acRemember') && document.getElementById('acRemember').checked));
   closeModal();
   toast('欢迎回来，' + u + ' ✔');
 }
 
-function doReg() {
+function loginFail() {
+  failTimes++;
+  if (failTimes >= 3) {
+    lockUntil = Date.now() + 30000;
+    failTimes = 0;
+    return true;
+  }
+  return false;
+}
+
+async function doReg() {
   var u = document.getElementById('acUser').value.trim();
   var p = document.getElementById('acPass').value;
   var p2 = document.getElementById('acPass2').value;
-  if (u.length < 2) { toast('用户名至少 2 个字符'); return; }
-  if (p.length < 4) { toast('密码至少 4 位'); return; }
+  if (!/^[\w\u4e00-\u9fa5]{2,16}$/.test(u)) { toast('用户名限 2-16 位，中英文、数字、下划线'); return; }
+  if (p.length < 6 || !/[a-zA-Z]/.test(p) || !/[0-9]/.test(p)) { toast('密码至少 6 位，且同时包含字母和数字'); return; }
   if (p !== p2) { toast('两次密码不一致'); return; }
   if (userNames[u]) { toast('这个用户名已被注册'); return; }
-  if (u === 'users' || u === 'login') { toast('这个名字不能用'); return; }
-  userNames[u] = { hash: hashPass(p), created: Date.now() };
+  if (u === 'users' || u === 'login' || u === 'login_s') { toast('这个名字不能用'); return; }
+  var s = randSalt();
+  var h = await deriveKey(p, s);
+  userNames[u] = { s: s, h: h, created: Date.now() };
   localStorage.setItem('ct_users', JSON.stringify(userNames));
-  applyAccount(u);
+  applyAccount(u, false);
   closeModal();
   toast('注册成功 ✔');
 }
 
 function doLogout() {
   localStorage.removeItem('ct_login');
+  sessionStorage.removeItem('ct_login_s');
   currentUser = '';
   projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
   currentId = null;
@@ -339,9 +397,15 @@ function doLogout() {
   toast('已退出登录');
 }
 
-function applyAccount(u) {
+function applyAccount(u, remember) {
   currentUser = u;
-  localStorage.setItem('ct_login', u);
+  if (remember === true) {
+    localStorage.setItem('ct_login', u);
+    sessionStorage.removeItem('ct_login_s');
+  } else {
+    sessionStorage.setItem('ct_login_s', u);
+    localStorage.removeItem('ct_login');
+  }
   projects = JSON.parse(localStorage.getItem('ct_' + u) || '[]');
   currentId = null;
   save();
