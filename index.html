@@ -597,7 +597,7 @@ async function doLogin() {
     for (var i = 0; i < p.length; i++) { h = ((h << 5) - h + p.charCodeAt(i)) | 0; }
     if (String(h) === rec.hash) {
       var ns = randSalt();
-      userNames[u] = { s: ns, h: await deriveKey(p, ns), created: rec.created || Date.now() };
+      userNames[u] = { s: ns, h: await deriveKey(p, ns), created: rec.created || Date.now(), role: rec.role, code: rec.code };
       localStorage.setItem('ct_users', JSON.stringify(userNames));
       ok = true;
     } else { ok = false; }
@@ -609,6 +609,12 @@ async function doLogin() {
     return;
   }
   failTimes = 0;
+  // 早期注册的老师账号没有邀请码：登录时自动补一个
+  var nu = userNames[u];
+  if (nu && nu.role === 'teacher' && !nu.code) {
+    nu.code = genCode();
+    localStorage.setItem('ct_users', JSON.stringify(userNames));
+  }
   applyAccount(u, !!(document.getElementById('acRemember') && document.getElementById('acRemember').checked));
   closeModal();
   toast('欢迎回来，' + u + ' ✔');
@@ -645,13 +651,13 @@ async function doReg() {
     userNames[u] = { s: s, h: h, created: Date.now(), role: 'teacher', code: genCode() };
   } else {
     // 学生：可填老师邀请码，填了分到对应老师班，不填则先「未分配」
-    var tcode = document.getElementById('acTCode') ? document.getElementById('acTCode').value.trim() : '';
+    var tcode = document.getElementById('acTCode') ? document.getElementById('acTCode').value.trim().toUpperCase() : '';
     var tname = '';
     if (tcode) {
       for (var tu in userNames) {
         if (userNames[tu] && userNames[tu].role === 'teacher' && userNames[tu].code === tcode) { tname = tu; break; }
       }
-      if (!tname) { toast('邀请码不存在，问问老师'); return; }
+      if (!tname) { toast('邀请码不存在：核对老师班级总览里显示的码，并在同一台电脑上注册'); return; }
     }
     userNames[u] = { s: s, h: h, created: Date.now(), role: 'student', teacher: tname || undefined };
   }
@@ -1778,7 +1784,8 @@ function renderClassOverview() {
   var h = '<div class="box">';
   h += '<h2>📚 我的班级</h2>';
   if (myCode) h += '<p class="invite" style="font-size:14px;">🔑 你的邀请码：<b>' + myCode +
-    '</b><span style="font-size:12px;color:var(--muted);">　学生注册时填这个码，就会分到你班</span></p>';
+    '</b> <button class="btn-g" onclick="copyCode()" style="padding:2px 10px;font-size:12px;">复制</button>' +
+    '<span style="font-size:12px;color:var(--muted);">　学生注册时填这个码（不用管大小写），就会分到你班</span></p>';
   h += '<p style="font-size:12px;color:var(--muted);">我班 ' + mine.length + ' 名学生、' + projN +
        ' 个项目，平均进度 ' + avg + '%，待点评 ' + pending + ' 个，未分配学生 ' + free.length + ' 名。</p>';
 
@@ -1851,6 +1858,20 @@ function unassignStudent(who) {
   renderStats();
   renderClassOverview();
   toast('已把 ' + who + ' 移出班级');
+}
+
+// 复制老师的邀请码
+function copyCode() {
+  var c = userNames[currentUser] && userNames[currentUser].code;
+  if (!c) { toast('先登录老师账号'); return; }
+  if (typeof navigator !== 'undefined' && navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(c).then(
+      function () { toast('邀请码已复制：' + c); },
+      function () { toast('请手动记下邀请码：' + c); }
+    );
+  } else {
+    toast('请手动记下邀请码：' + c);
+  }
 }
 
 // 注销本机全部账号与数据（删掉 ct_users、所有 ct_* 账号数据、游客数据、登录状态）
