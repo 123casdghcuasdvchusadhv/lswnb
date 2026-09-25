@@ -258,7 +258,7 @@
   </div>
 
   <!-- 新建项目 -->
-  <div class="box">
+  <div class="box" id="newBox">
     <h3>新建项目</h3>
     <div style="display:flex; flex-wrap:wrap; gap:8px;">
       <input id="pname" placeholder="项目名字，比如：自动浇花装置">
@@ -275,7 +275,7 @@
   </div>
 
   <!-- 工具栏：搜索 / 筛选 / 排序 -->
-  <div class="toolbar">
+  <div class="toolbar" id="toolbar">
     <input type="text" id="kw" placeholder="🔍 搜索项目名称或成员" oninput="renderList()">
     <select id="themeFilter" onchange="renderList()">
       <option value="全部">全部主题</option>
@@ -293,7 +293,7 @@
   </div>
 
   <!-- 项目列表 -->
-  <div id="list"></div>
+  <div id="list" class="studonly"></div>
 
   <!-- 项目详情 -->
   <div id="detail"></div>
@@ -523,6 +523,17 @@ function isTeacher() {
   return !!(currentUser && userNames[currentUser] && userNames[currentUser].role === 'teacher');
 }
 
+// 老师登录后：隐藏「新建项目」框、搜索工具栏、学生列表，只留班级总览
+function applyRoleUI() {
+  var isT = isTeacher();
+  var nb = document.getElementById('newBox');
+  var tb = document.getElementById('toolbar');
+  var ls = document.getElementById('list');
+  if (nb) nb.style.display = isT ? 'none' : '';
+  if (tb) tb.style.display = isT ? 'none' : '';
+  if (ls) ls.style.display = isT ? 'none' : '';
+}
+
 function openAccount(mode) {
   var b = document.getElementById('modalBody');
   if (mode === 'login') {
@@ -639,6 +650,7 @@ function doLogout() {
   viewAs = null;
   projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
   currentId = null;
+  applyRoleUI();
   renderUser();
   renderStats();
   renderList();
@@ -659,10 +671,18 @@ function applyAccount(u, remember) {
   projects = JSON.parse(localStorage.getItem('ct_' + u) || '[]');
   currentId = null;
   save();
-  renderUser();
-  renderStats();
-  renderList();
-  renderDetail();
+  applyRoleUI();
+  if (isTeacher()) {
+    // 老师登录后直接进班级总览，不显示新建项目/列表
+    renderUser();
+    renderStats();
+    renderClassOverview();
+  } else {
+    renderUser();
+    renderStats();
+    renderList();
+    renderDetail();
+  }
 }
 
 function findProject(id) {
@@ -741,6 +761,23 @@ function radarSVG(values, size) {
 
 // ---------- 顶部统计 ----------
 function renderStats() {
+  // 老师：顶部统计显示全班数据，而不是自己的（老师不建项目）
+  if (isTeacher()) {
+    var cl = classList();
+    var stuSet = {}, doneN = 0, pend = 0;
+    for (var ci = 0; ci < cl.length; ci++) {
+      stuSet[cl[ci].who] = 1;
+      for (var cj = 0; cj < cl[ci].p.stages.length; cj++) if (cl[ci].p.stages[cj].done) doneN++;
+      if (!cl[ci].p.mentor) pend++;
+    }
+    var pct2 = cl.length ? Math.round(doneN / cl.length / 5 * 100) : 0;
+    document.getElementById('stats').innerHTML =
+      '<div class="stat"><b>' + Object.keys(stuSet).length + '</b><span>学生数</span></div>' +
+      '<div class="stat"><b>' + cl.length + '</b><span>项目总数</span></div>' +
+      '<div class="stat"><b>' + pend + '</b><span>待点评</span></div>' +
+      '<div class="stat"><b>' + pct2 + '%</b><span>平均进度</span></div>';
+    return;
+  }
   var recs = 0, scores = [], done = 0, total = 0;
   for (var i = 0; i < projects.length; i++) {
     var p = projects[i];
@@ -1678,6 +1715,7 @@ function openClass() {
   if (!isTeacher()) return;
   viewAs = null;
   currentId = null;
+  applyRoleUI();
   renderClassOverview();
   document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
 }
@@ -1735,11 +1773,17 @@ function backToWork() {
   viewAs = null;
   currentId = null;
   projects = JSON.parse(localStorage.getItem(currentUser ? 'ct_' + currentUser : 'ctProjects') || '[]');
+  applyRoleUI();
   renderUser();
   renderStats();
-  renderList();
-  renderDetail();
-  toast('回到工作台');
+  if (isTeacher()) {
+    renderClassOverview();   // 老师没有自己的项目，「工作台」就是班级总览
+    toast('回到班级总览');
+  } else {
+    renderList();
+    renderDetail();
+    toast('回到工作台');
+  }
 }
 
 // 页面打开时先渲染
