@@ -513,7 +513,8 @@ function renderUser() {
     box.innerHTML = '<span class="uname">' + (isT ? '🧑‍🏫' : '👤') + ' ' + esc(currentUser) +
                     (isT ? '（老师）' : '（学生' + (myT ? ' · ' + esc(myT) + '班' : ' · 未分配') + '）') + '</span>' +
                     (isT ? '<button onclick="openClass()">📚 班级总览</button>' : '') +
-                    '<button onclick="doLogout()">退出</button>';
+                    '<button onclick="doLogout()">退出</button>' +
+                    '<button class="btn-ghost" onclick="wipeAll()" style="border:1px solid #e03131;color:#e03131;background:#fff;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;">注销全部账号</button>';
   } else {
     box.innerHTML = '<button onclick="openAccount(\'login\')">登录</button>' +
                     '<button onclick="openAccount(\'reg\')">注册</button>';
@@ -547,6 +548,8 @@ function openAccount(mode) {
       '<button class="btn-g" onclick="closeModal()">取消</button> ' +
       '<button class="btn-p" onclick="doLogin()">登录</button></div>' +
       '<p class="tips">还没有账号？<a href="javascript:void(0)" onclick="openAccount(\'reg\')">去注册</a></p>' +
+      '<hr style="border:none;border-top:1px solid var(--line,#e3e8f5);margin:10px 0;">' +
+      '<button class="btn-ghost" onclick="wipeAll()" style="width:100%; padding:8px; border:1px solid #e03131; color:#e03131; background:#fff; border-radius:8px; cursor:pointer; font-size:12px;">🧹 注销本机全部账号与数据（不可恢复）</button>' +
       '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，换电脑看不到；正式上线需要服务器。</p>';
   } else {
     b.innerHTML = '<h4>✨ 注册</h4>' +
@@ -1848,6 +1851,32 @@ function unassignStudent(who) {
   renderStats();
   renderClassOverview();
   toast('已把 ' + who + ' 移出班级');
+}
+
+// 注销本机全部账号与数据（删掉 ct_users、所有 ct_* 账号数据、游客数据、登录状态）
+function wipeAll() {
+  var who = currentUser ? '（当前登录：' + currentUser + '）' : '（当前未登录）';
+  if (!confirm('⚠️ 此操作将注销本机浏览器里的【全部账号】，并删除所有账号的项目数据，\n无法恢复！\n' + who + '\n\n确定要注销吗？')) return;
+  var keys = storeKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.indexOf('ct_') === 0 || k === 'ctProjects') localStorage.removeItem(k);
+  }
+  sessionStorage.removeItem('ct_login_s');
+  userNames = {};
+  currentUser = '';
+  viewAs = null;
+  projects = [];
+  currentId = null;
+  failTimes = 0;
+  lockUntil = 0;
+  closeModal();
+  applyRoleUI();
+  renderUser();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('已注销本机全部账号与数据 ✔');
 }
 
 // 老师进入某个学生的项目（可修改，点保存会写回学生数据）
