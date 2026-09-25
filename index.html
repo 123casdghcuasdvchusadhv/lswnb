@@ -324,6 +324,76 @@
 </div>
 
 <script>
+/* ============ 星迹 · 服务器同步桥 ============
+   如果页面是从星迹服务器（http://服务器IP:8080）打开的，
+   账号和项目数据会自动同步到服务器的 star-data.json；
+   在 GitHub 演示页打开时，接口不存在，自动退回原来的本机存储，不影响演示。 */
+(function () {
+  'use strict';
+  var TOKEN = 'xjstar2026';   // 演示用钥匙（写在页面里，正式版要换成真登录）
+  var cache = {};
+  var IS_SYNC = false;
+  try {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/store?t=' + TOKEN, false);
+    xhr.timeout = 5000;
+    xhr.send();
+    if (xhr.status === 200) {
+      var got = JSON.parse(xhr.responseText);
+      if (got && got.ok) { cache = got.store || {}; IS_SYNC = true; }
+    }
+  } catch (e) { IS_SYNC = false; }
+  window.__xjCache = cache;
+  window.__xjSync = IS_SYNC;
+
+  if (IS_SYNC) {
+    var _ls = window.localStorage;
+    var realGet = _ls.getItem.bind(_ls), realSet = _ls.setItem.bind(_ls), realDel = _ls.removeItem.bind(_ls);
+    function isSyncKey(k) { return k === 'ctProjects' || (typeof k === 'string' && k.indexOf('ct_') === 0); }
+    var dirty = {}, timers = {};
+    function push(k) {
+      dirty[k] = cache[k];
+      clearTimeout(timers[k]);
+      timers[k] = setTimeout(flush, 400);
+    }
+    function flush() {
+      var batch = {}, has = false;
+      for (var k in dirty) if (dirty.hasOwnProperty(k)) { batch[k] = dirty[k]; has = true; }
+      dirty = {};
+      if (!has) return;
+      var p = new XMLHttpRequest();
+      p.open('POST', '/api/store', true);
+      p.setRequestHeader('Content-Type', 'application/json');
+      p.send(JSON.stringify({ t: TOKEN, batch: batch }));
+    }
+    _ls.getItem = function (k) { if (isSyncKey(k) && cache[k] !== undefined) return cache[k]; return realGet(k); };
+    _ls.setItem = function (k, v) {
+      realSet(k, v);
+      if (!isSyncKey(k)) return;
+      cache[k] = String(v);
+      push(k);
+    };
+    _ls.removeItem = function (k) {
+      realDel(k);
+      if (!isSyncKey(k)) return;
+      delete cache[k];
+      dirty[k] = null;   // null = 让服务器也删掉这个键
+      clearTimeout(timers[k]);
+      timers[k] = setTimeout(flush, 400);
+    };
+    window.addEventListener('beforeunload', function () { flush(); });
+    // 页面左下角亮一盏小绿灯，表示已连上服务器
+    window.addEventListener('DOMContentLoaded', function () {
+      var b = document.createElement('div');
+      b.textContent = '🟢 已连接服务器';
+      b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:999;background:#ebfbee;color:#2b8a3e;border:1px solid #69db7c;border-radius:20px;padding:3px 12px;font-size:12px;';
+      document.body.appendChild(b);
+    });
+  }
+})();
+</script>
+
+<script>
 // ---------- 数据 ----------
 var currentUser = localStorage.getItem('ct_login') || sessionStorage.getItem('ct_login_s') || '';
 var projects = JSON.parse(localStorage.getItem(currentUser ? 'ct_' + currentUser : 'ctProjects') || '[]');
@@ -1716,6 +1786,9 @@ function aiStage(i) {
 function storeKeys() {
   var ks = [];
   for (var i = 0; i < localStorage.length; i++) ks.push(localStorage.key(i));
+  // 服务器上还有别处注册的账号键，本地没存，也要算上（多台设备共用时）
+  var cache = window.__xjCache || {};
+  for (var k in cache) if (cache.hasOwnProperty(k) && ks.indexOf(k) < 0) ks.push(k);
   return ks;
 }
 
