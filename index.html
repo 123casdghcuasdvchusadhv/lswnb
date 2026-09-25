@@ -733,7 +733,8 @@ function addProject() {
     records: [],
     reviews: [],
     mentor: '',
-    ability: [4, 4, 4, 4]
+    ability: [4, 4, 4, 4],
+    table: { cols: ['日期', '观察数据', '备注'], rows: [] }
   });
 
   document.getElementById('pname').value = '';
@@ -933,6 +934,9 @@ function renderDetail() {
     }
     html += '</div>';
   }
+
+  // 2.5 数据表格：记录实验数据（可加列加行，导出成 Excel）
+  html += tblHTML(p);
 
   // 3. 同伴互评
   html += '<h3>同伴互评</h3><div class="avg">';
@@ -1152,6 +1156,25 @@ function openParent(id) {
   }
   h += '</div>';
 
+  // 数据表格卡片
+  h += '<div class="card"><h2>数据表格</h2>';
+  var ptt = tblNorm(p);
+  if (ptt.rows.length === 0) {
+    h += '<p style="color:#7a8699;">（还没有数据）</p>';
+  } else {
+    h += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    h += '<tr>' + ptt.cols.map(function (c) {
+      return '<th style="border:1px solid #e0e7f5;background:#eef2ff;padding:6px;">' + esc(c) + '</th>';
+    }).join('') + '</tr>';
+    for (var pr = 0; pr < ptt.rows.length; pr++) {
+      h += '<tr>' + ptt.rows[pr].map(function (v) {
+        return '<td style="border:1px solid #e0e7f5;padding:6px;">' + esc(v || '') + '</td>';
+      }).join('') + '</tr>';
+    }
+    h += '</table>';
+  }
+  h += '</div>';
+
   h += '<div class="card"><h2>同伴互评</h2>';
   if (p.reviews.length === 0) h += '<p style="color:#7a8699;">（还没有互评）</p>';
   for (var m = 0; m < p.reviews.length; m++) {
@@ -1226,6 +1249,23 @@ function exportHTML(id) {
          (p.records[k].img ? '<img src="' + p.records[k].img + '">' : '') + '</div>';
   }
 
+  h += '<h2>数据表格</h2>';
+  var tb2 = tblNorm(p);
+  if (!tb2.rows.length) {
+    h += '<p style="color:#7a8699;">（暂无）</p>';
+  } else {
+    h += '<table style="width:100%;border-collapse:collapse;font-size:13px;">';
+    h += '<tr>' + tb2.cols.map(function (c) {
+      return '<th style="border:1px solid #dbe2f5;background:#eef2ff;padding:6px;">' + esc(c) + '</th>';
+    }).join('') + '</tr>';
+    for (var r = 0; r < tb2.rows.length; r++) {
+      h += '<tr>' + tb2.rows[r].map(function (v) {
+        return '<td style="border:1px solid #dbe2f5;padding:6px;">' + esc(v || '') + '</td>';
+      }).join('') + '</tr>';
+    }
+    h += '</table>';
+  }
+
   h += '<h2>同伴互评</h2>';
   if (p.reviews.length === 0) h += '<p style="color:#7a8699;">（暂无）</p>';
   for (var m = 0; m < p.reviews.length; m++) {
@@ -1268,6 +1308,13 @@ function exportTxt(id) {
          (p.records[k].img ? '（含图片）' : '') + '\n';
   }
 
+  t += '\n【数据表格】\n';
+  var tb = tblNorm(p);
+  t += tb.cols.join(' | ') + '\n';
+  for (var r = 0; r < tb.rows.length; r++) {
+    t += tb.rows[r].join(' | ') + '\n';
+  }
+
   t += '\n【同伴互评】\n';
   for (var m = 0; m < p.reviews.length; m++) {
     t += (p.reviews[m].from || '匿名') + '：' + '★'.repeat(p.reviews[m].score || 1) +
@@ -1281,6 +1328,132 @@ function exportTxt(id) {
   a2.href = URL.createObjectURL(blob);
   a2.download = p.name + '_项目档案.txt';
   a2.click();
+}
+
+// ---------- 数据表格（记录实验数据，可导出 Excel） ----------
+// 旧项目没有 table 字段时，给出默认表格结构
+function tblNorm(p) {
+  if (!p.table || !p.table.cols || !p.table.rows) {
+    p.table = { cols: ['日期', '观察数据', '备注'], rows: [] };
+  }
+  return p.table;
+}
+
+// 加一列
+function addTCol(id) {
+  var p = findProject(id);
+  var t = tblNorm(p);
+  t.cols.push('新列');
+  for (var i = 0; i < t.rows.length; i++) t.rows[i].push('');
+  save();
+  renderDetail();
+}
+
+// 删一列（至少留 1 列）
+function delTCol(id, ci) {
+  var p = findProject(id);
+  var t = tblNorm(p);
+  if (t.cols.length <= 1) { toast('至少保留 1 列'); return; }
+  t.cols.splice(ci, 1);
+  for (var i = 0; i < t.rows.length; i++) t.rows[i].splice(ci, 1);
+  save();
+  renderDetail();
+}
+
+// 加一行
+function addTRow(id) {
+  var p = findProject(id);
+  var t = tblNorm(p);
+  var row = [];
+  for (var i = 0; i < t.cols.length; i++) row.push('');
+  t.rows.push(row);
+  save();
+  renderDetail();
+}
+
+// 删一行
+function delTRow(id, ri) {
+  var p = findProject(id);
+  var t = tblNorm(p);
+  t.rows.splice(ri, 1);
+  save();
+  renderDetail();
+}
+
+// 保存表格内容（把输入框的值写回数据）
+function saveTable(id) {
+  var p = findProject(id);
+  var t = tblNorm(p);
+  for (var i = 0; i < t.cols.length; i++) {
+    var c = document.getElementById('tcol' + i);
+    if (c) t.cols[i] = c.value.trim() || '列' + (i + 1);
+  }
+  for (var r = 0; r < t.rows.length; r++) {
+    for (var c2 = 0; c2 < t.cols.length; c2++) {
+      var cell = document.getElementById('tcell' + r + '_' + c2);
+      t.rows[r][c2] = cell ? cell.value : '';
+    }
+  }
+  save();
+  toast('表格已保存 ✔');
+}
+
+// 导出 CSV（用 Excel 能直接打开）
+function exportCSV(id) {
+  var p = findProject(id);
+  var t = tblNorm(p);
+  var lines = [];
+  lines.push(t.cols.map(csvCell).join(','));
+  for (var i = 0; i < t.rows.length; i++) {
+    lines.push(t.rows[i].map(csvCell).join(','));
+  }
+  var blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = p.name + '_数据表格.csv';
+  a.click();
+  toast('CSV 已导出，可用 Excel 打开');
+}
+
+function csvCell(s) {
+  s = String(s == null ? '' : s);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+
+// 渲染表格区块
+function tblHTML(p) {
+  var t = tblNorm(p);
+  var h = '<h3>数据表格</h3>';
+  h += '<p style="color:var(--muted); font-size:12px; margin:2px 0 8px;">把实验数据一行行记下来（如日期、温度、湿度），最后能导出成 Excel。</p>';
+
+  // 表头（可编辑列名）
+  h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">';
+  for (var i = 0; i < t.cols.length; i++) {
+    h += '<div style="display:flex; align-items:center; gap:2px;">' +
+         '<input id="tcol' + i + '" value="' + escAttr(t.cols[i]) + '" style="width:100px;">' +
+         '<button class="btn-g del" onclick="delTCol(' + p.id + ',' + i + ')" title="删列">✕</button></div>';
+  }
+  h += '<button class="btn-g" onclick="addTCol(' + p.id + ')">＋ 加一列</button></div>';
+
+  // 数据行
+  if (t.rows.length === 0) {
+    h += '<p style="color:var(--muted); font-size:13px;">（还没有数据行）</p>';
+  } else {
+    for (var r = 0; r < t.rows.length; r++) {
+      h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">';
+      for (var c = 0; c < t.cols.length; c++) {
+        h += '<input id="tcell' + r + '_' + c + '" value="' + escAttr(t.rows[r][c] || '') +
+             '" style="width:100px;" placeholder="' + escAttr(t.cols[c]) + '">';
+      }
+      h += '<button class="btn-g del" onclick="delTRow(' + p.id + ',' + r + ')">✕</button></div>';
+    }
+  }
+  h += '<div style="display:flex; gap:8px; flex-wrap:wrap;">' +
+       '<button class="btn-p" onclick="addTRow(' + p.id + ')">＋ 加一行</button> ' +
+       '<button class="btn-p" onclick="saveTable(' + p.id + ')">保存表格</button> ' +
+       '<button class="btn-g" onclick="exportCSV(' + p.id + ')">📊 导出 Excel</button></div>';
+
+  return h;
 }
 
 // ---------- AI 助教（离线问答聊天窗，模拟 DeepSeek 式对话） ----------
