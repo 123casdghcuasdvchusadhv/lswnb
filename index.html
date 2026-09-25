@@ -151,6 +151,17 @@
   @keyframes pop { from{transform:scale(.92); opacity:0;} to{transform:scale(1); opacity:1;} }
   .modal h4 { margin:0 0 12px; }
   .modal .tips { font-size:12px; color:var(--muted); margin-top:6px; }
+  .modal input[type=text], .modal input[type=password] { width:92%; display:block; margin:6px 0; }
+  .modal .tips a { color:var(--primary); text-decoration:none; }
+
+  /* 右上角用户区 */
+  .ubox { position:absolute; top:16px; right:20px; display:flex; gap:8px; align-items:center; }
+  .ubox button {
+    background:rgba(255,255,255,.18); color:#fff; padding:6px 14px;
+    border:1px solid rgba(255,255,255,.45); border-radius:20px; font-size:13px;
+  }
+  .ubox button:hover { background:rgba(255,255,255,.35); transform:none; }
+  .ubox .uname { font-size:13px; color:#fff; opacity:.95; }
 
   /* 提示条 */
   #toast {
@@ -169,6 +180,7 @@
     <h1>🚀 星迹</h1>
     <p>让每一次尝试都被看见 —— 青少年科创项目协作与同伴互评平台</p>
     <div class="stats" id="stats"></div>
+    <div class="ubox" id="userbox"></div>
   </div>
 
   <!-- 新建项目 -->
@@ -213,15 +225,10 @@
   <div id="detail"></div>
 </div>
 
-<!-- 删除确认弹窗 -->
+<!-- 通用弹窗（登录 / 注册 / 删除确认） -->
 <div class="mask" id="mask" onclick="maskClick(event)">
   <div class="modal">
-    <h4>😢 确定删除这个项目吗？</h4>
-    <p id="delInfo" style="font-size:13px;color:var(--muted);">删除后无法恢复。</p>
-    <div style="text-align:right; margin-top:14px;">
-      <button class="btn-g" onclick="closeModal()">再想想</button>
-      <button class="btn-danger" id="delBtn" style="margin-left:8px;" onclick="confirmDel()">删除</button>
-    </div>
+    <div id="modalBody"></div>
   </div>
 </div>
 
@@ -229,7 +236,8 @@
 
 <script>
 // ---------- 数据 ----------
-var projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
+var currentUser = localStorage.getItem('ct_login') || '';
+var projects = JSON.parse(localStorage.getItem(currentUser ? 'ct_' + currentUser : 'ctProjects') || '[]');
 var currentId = null;
 var delTargetId = null;
 
@@ -245,7 +253,102 @@ var STAGE_NOTES = [
 var ABILITIES = ['探究','协作','创新','表达'];
 
 function save() {
-  localStorage.setItem('ctProjects', JSON.stringify(projects));
+  localStorage.setItem(currentUser ? 'ct_' + currentUser : 'ctProjects', JSON.stringify(projects));
+}
+
+// ---------- 账户（注册 / 登录 / 退出） ----------
+var userNames = JSON.parse(localStorage.getItem('ct_users') || '{}');
+
+// 密码做一次简单的不可逆处理（演示用；正式上线要换成专业加密方式）
+function hashPass(txt) {
+  var h = 7;
+  for (var i = 0; i < txt.length; i++) {
+    h = ((h << 5) - h + txt.charCodeAt(i)) | 0;
+  }
+  return String(h);
+}
+
+function renderUser() {
+  var box = document.getElementById('userbox');
+  if (currentUser) {
+    box.innerHTML = '<span class="uname">👤 ' + esc(currentUser) + '</span>' +
+                    '<button onclick="doLogout()">退出</button>';
+  } else {
+    box.innerHTML = '<button onclick="openAccount(\'login\')">登录</button>' +
+                    '<button onclick="openAccount(\'reg\')">注册</button>';
+  }
+}
+
+function openAccount(mode) {
+  var b = document.getElementById('modalBody');
+  if (mode === 'login') {
+    b.innerHTML = '<h4>🔑 登录</h4>' +
+      '<input id="acUser" type="text" placeholder="用户名">' +
+      '<input id="acPass" type="password" placeholder="密码">' +
+      '<div style="margin-top:12px; text-align:right;">' +
+      '<button class="btn-g" onclick="closeModal()">取消</button> ' +
+      '<button class="btn-p" onclick="doLogin()">登录</button></div>' +
+      '<p class="tips">还没有账号？<a href="javascript:void(0)" onclick="openAccount(\'reg\')">去注册</a></p>';
+  } else {
+    b.innerHTML = '<h4>✨ 注册</h4>' +
+      '<input id="acUser" type="text" placeholder="用户名（至少2个字符）">' +
+      '<input id="acPass" type="password" placeholder="密码（至少4位）">' +
+      '<input id="acPass2" type="password" placeholder="再输一次密码">' +
+      '<div style="margin-top:12px; text-align:right;">' +
+      '<button class="btn-g" onclick="closeModal()">取消</button> ' +
+      '<button class="btn-p" onclick="doReg()">注册</button></div>';
+  }
+  document.getElementById('mask').className = 'mask show';
+}
+
+function doLogin() {
+  var u = document.getElementById('acUser').value.trim();
+  var p = document.getElementById('acPass').value;
+  if (!u || !p) { toast('请填写用户名和密码'); return; }
+  if (!userNames[u] || userNames[u].hash !== hashPass(p)) { toast('用户名或密码不对'); return; }
+  applyAccount(u);
+  closeModal();
+  toast('欢迎回来，' + u + ' ✔');
+}
+
+function doReg() {
+  var u = document.getElementById('acUser').value.trim();
+  var p = document.getElementById('acPass').value;
+  var p2 = document.getElementById('acPass2').value;
+  if (u.length < 2) { toast('用户名至少 2 个字符'); return; }
+  if (p.length < 4) { toast('密码至少 4 位'); return; }
+  if (p !== p2) { toast('两次密码不一致'); return; }
+  if (userNames[u]) { toast('这个用户名已被注册'); return; }
+  if (u === 'users' || u === 'login') { toast('这个名字不能用'); return; }
+  userNames[u] = { hash: hashPass(p), created: Date.now() };
+  localStorage.setItem('ct_users', JSON.stringify(userNames));
+  applyAccount(u);
+  closeModal();
+  toast('注册成功 ✔');
+}
+
+function doLogout() {
+  localStorage.removeItem('ct_login');
+  currentUser = '';
+  projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
+  currentId = null;
+  renderUser();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('已退出登录');
+}
+
+function applyAccount(u) {
+  currentUser = u;
+  localStorage.setItem('ct_login', u);
+  projects = JSON.parse(localStorage.getItem('ct_' + u) || '[]');
+  currentId = null;
+  save();
+  renderUser();
+  renderStats();
+  renderList();
+  renderDetail();
 }
 
 function findProject(id) {
@@ -440,7 +543,12 @@ function closeDetail() {
 function askDelete(id) {
   var p = findProject(id);
   delTargetId = id;
-  document.getElementById('delInfo').textContent = '「' + p.name + '」删除后无法恢复，确定吗？';
+  document.getElementById('modalBody').innerHTML =
+    '<h4>😢 确定删除这个项目吗？</h4>' +
+    '<p style="font-size:13px;color:var(--muted);">「' + esc(p.name) + '」删除后无法恢复，确定吗？</p>' +
+    '<div style="text-align:right; margin-top:14px;">' +
+    '<button class="btn-g" onclick="closeModal()">再想想</button> ' +
+    '<button class="btn-danger" onclick="confirmDel()" style="margin-left:8px;">删除</button></div>';
   document.getElementById('mask').className = 'mask show';
 }
 
@@ -889,6 +997,7 @@ function exportTxt(id) {
 }
 
 // 页面打开时先渲染
+renderUser();
 renderStats();
 renderList();
 </script>
