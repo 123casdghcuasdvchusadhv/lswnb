@@ -163,6 +163,16 @@
   .ubox button:hover { background:rgba(255,255,255,.35); transform:none; }
   .ubox .uname { font-size:13px; color:#fff; opacity:.95; }
 
+  /* AI 教练 */
+  .ai-box { border:1px solid rgba(59,91,219,.25); background:linear-gradient(180deg,#f5f7ff,#fff); }
+  .ai-box ul { margin:10px 0; padding:0; list-style:none; }
+  .ai-box li { background:#fff; border:1px solid #e3e8f5; border-radius:10px; padding:10px 12px; margin:8px 0; font-size:14px; line-height:1.7; }
+  .ai-box li b { color:var(--primary); }
+  .badge {
+    display:inline-block; background:var(--primary); color:#fff; font-size:11px;
+    padding:2px 8px; border-radius:20px; vertical-align:2px; margin-left:4px;
+  }
+
   /* 提示条 */
   #toast {
     position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(80px);
@@ -251,6 +261,138 @@ var STAGE_NOTES = [
   '成果打算怎么展示？比如：做个模型并录制讲解视频'
 ];
 var ABILITIES = ['探究','协作','创新','表达'];
+
+// ---------- AI 教练（离线规则版：根据主题/进度/填写内容生成建议，不上传数据） ----------
+var aiSeed = 0;   // 换一批建议时 +1，轮换不同建议
+
+var AI_THEME_IDEAS = {
+  '未来工厂': [
+    '自动分拣小机器人：用颜色传感器把零件送到不同的盒子',
+    '车间噪音报警器：太吵时自动亮灯，提醒戴耳罩',
+    '传送带节能：人走开时自动减速或停止',
+    '安全头盔检测：没戴头盔，机器就不开工'
+  ],
+  '智慧城市': [
+    '楼道声控灯优化：有人走过才亮，半夜自动调暗',
+    '共享雨伞柜：扫码自动开锁，还伞自动登记',
+    '垃圾桶满桶提醒：满了就通知清洁工来收',
+    '停车位提示器：空车位亮了绿灯，司机远远看到'
+  ],
+  '生命盒子': [
+    '小孵化器：给蛋合适的温度和湿度',
+    '鱼缸水质监测：水质变差自动提醒换水',
+    '豆芽生长对比：不同光照下谁长得快',
+    '植物缺水报警：叶子蔫了，传感器先发现'
+  ],
+  '自然公社': [
+    '雨水收集器：把屋顶的雨水存起来浇菜',
+    '堆肥箱监测：温度和湿度合适时提示翻堆',
+    '鸟窝温度计：记录小鸟出壳的全过程',
+    '太阳能昆虫旅馆：给小昆虫一个过冬的家'
+  ],
+  '太空码头': [
+    '太阳系模型：行星绕太阳转，碰到就亮灯',
+    '太空菜园：用 LED 光照在屋里种菜',
+    '陨石警报器：模拟小行星接近就闪警报',
+    '舱内氧气监测：浓度低了自动报警'
+  ]
+};
+
+var AI_STAGE_TIPS = {
+  0: [
+    '把问题改成能验证的形式：别问「花盆怎么不浇水」，问「土壤湿度低于多少时自动浇多少水」',
+    '三步提问法：①我观察到什么现象？②原因可能是什么？③我能做什么让它变好？',
+    '先别急着想答案。把问题写下来，去问 3 个人：你觉得这个问题值得做吗？',
+    '把大问题拆小：「做个智能花盆」太宽，先做「自动浇水」这一件事'
+  ],
+  1: [
+    '方案写清四件事：用什么材料、分几步做、每步谁负责、大概花多少钱',
+    '先画草图再动手！画得再丑，队友也能一眼看懂你的想法',
+    '材料清单越早列越好——有些零件要网购，要等好几天',
+    '给方案定一个成功标准：比如「连续 7 天不用人工浇水」'
+  ],
+  2: [
+    '每天固定时间记录，数据才有可比性，比如每天下午 5 点测一次',
+    '照片是最好的记录！同一个角度拍，前后对比一眼就能看出来',
+    '用表格记：日期、观察内容、数据、备注，四列就够了',
+    '把「意外」也记下来：哪天没浇水反而长得好？那可能是最重要的发现'
+  ],
+  3: [
+    '比较才有结论：把实验组和对照组的数据摆在一起看',
+    '先找规律再找原因：「第 3 天后不再变化」→ 可能是因为土壤饱和了',
+    '一个数据点不能下结论，至少重复 3 次再说话',
+    '把结论写成一句话：在 X 条件下，Y 会发生 Z'
+  ],
+  4: [
+    '讲解按这个顺序：问题 → 我的方案 → 数据 → 结论 → 我最得意的地方',
+    '录一段 1 分钟的视频，比讲 10 分钟都有说服力',
+    '做一页数据海报：一张图胜过十句话',
+    '结尾问大家一句：你觉得还可以怎么改进？'
+  ]
+};
+
+var AI_GENERAL_TIPS = [
+  '小组成员还没填写：科创项目分工越清楚，合作越顺利',
+  '试试每个阶段都上传一张照片，评委能看到你们完整的过程',
+  '同伴互评是星迹的特色：项目完成后，邀请 3 位同学来打分留言',
+  '做完一个功能就保存一次，好习惯让你不丢数据'
+];
+
+// 生成这批建议（固定返回 3 条）
+function aiCoach(p) {
+  var picks = [];
+
+  // 1) 主题灵感（有就推一条）
+  var ideas = AI_THEME_IDEAS[p.theme];
+  if (ideas && ideas.length) {
+    picks.push({ tag: '💡 主题灵感', text: ideas[aiSeed % ideas.length] });
+  }
+
+  // 2) 当前该做的事：第一个未完成的阶段 → 阶段锦囊；全完成了 → 祝贺
+  var nextIdx = -1;
+  for (var i = 0; i < p.stages.length; i++) { if (!p.stages[i].done) { nextIdx = i; break; } }
+  if (nextIdx >= 0) {
+    var tips = AI_STAGE_TIPS[nextIdx];
+    picks.push({ tag: '📋 先把「' + p.stages[nextIdx].name + '」做好', text: tips[(aiSeed + 1) % tips.length] });
+    if (nextIdx === 0 && p.stages[0].note) {
+      picks.push({ tag: '🎯 针对你提的问题', text: '你写的是「' + esc(p.stages[0].note) + '」。试着把它变成能做实验的形式：用什么方法、怎么量、怎么知道成功了？' });
+    }
+  } else {
+    picks.push({ tag: '🎉 五个阶段全完成', text: '记得导出项目档案，再邀请 3 位同学来互评——让大家看见你们的成果！' });
+  }
+
+  // 3) 通用提醒（数据感知，挑没做的）
+  if (p.stages[0].note && nextIdx !== 0 && picks.length < 3 && findProject(currentId) === p) {
+    picks.push({ tag: '📝 你们的问题', text: '别忘了在档案里把问题「' + esc(p.stages[0].note) + '」和结论对应起来。' });
+  } else if (picks.length < 3 && !p.members.length) {
+    picks.push({ tag: '👥 合作建议', text: AI_GENERAL_TIPS[0] });
+  } else if (picks.length < 3) {
+    picks.push({ tag: '✨ 小提示', text: AI_GENERAL_TIPS[(aiSeed + 2) % AI_GENERAL_TIPS.length] });
+  }
+
+  var h = '<div class="box ai-box">';
+  h += '<h3>🤖 AI 教练 <span class="badge">离线规则 · 演示版</span></h3>';
+  h += '<ul>';
+  for (var k = 0; k < picks.length; k++) {
+    h += '<li><b>' + picks[k].tag + '</b><br>' + picks[k].text + '</li>';
+  }
+  h += '</ul>';
+  h += '<button class="btn-g" onclick="aiNext()">🔁 换一批建议</button> ';
+  h += '<span class="tips" style="font-size:12px;color:var(--muted);">建议来自内置经验库，不联网、不上传数据；正式版接入大模型需要服务器。</span>';
+  h += '</div>';
+  return h;
+}
+
+function aiNext() {
+  aiSeed = (aiSeed + 1) % 999;
+  renderDetail();
+}
+
+function aiMembersHint(p) {
+  return p.members.length
+    ? '成员：' + esc(p.members.join('、'))
+    : '成员还没填写，可以问问孩子小组怎么分工的';
+}
 
 function save() {
   localStorage.setItem(currentUser ? 'ct_' + currentUser : 'ctProjects', JSON.stringify(projects));
@@ -689,6 +831,9 @@ function renderDetail() {
           '<span class="tag">进度 ' + pct + '%</span><span class="tag">记录 ' + p.records.length + ' 条</span>' +
           '<span class="tag">互评 ★ ' + (p.reviews.length ? avg : '—') + '</span></div>';
 
+  // AI 教练：根据主题/进度/填写内容给建议
+  html += aiCoach(p);
+
   // 1. 项目阶段流程
   html += '<h3>项目进度</h3>';
   html += '<div class="pbar" style="margin-bottom:10px;"><span class="pfill" style="width:' + pct + '%"></span></div>';
@@ -906,6 +1051,14 @@ function openParent(id) {
   h += '<div class="card"><p style="margin:4px 0;">主题：' + esc(p.theme) +
        '　👥 成员：' + (p.members.length ? esc(p.members.join('、')) : '（未填写）') + '</p>';
   h += '<p style="margin:4px 0; color:#7a8699;">项目进度：' + d + '/' + p.stages.length + '</p></div>';
+
+  // AI 教练给家长的提示
+  h += '<div class="card" style="border-left:4px solid #7048e8;"><h2>🤖 AI 给家长的话</h2>';
+  h += '<p style="font-size:14px; line-height:1.8;">孩子正在做「' + esc(p.theme) + '」主题的「' + esc(p.name) +
+       '」，目前完成了 ' + d + '/' + p.stages.length + ' 步（' + aiMembersHint(p) + '）。</p>';
+  h += '<p style="font-size:14px; line-height:1.8; color:#3b5bdb;">今晚可以问问孩子这三个问题：<br>'
+     + '1. 今天遇到了什么困难？<br>2. 你是怎么解决的？<br>3. 最得意的是什么？</p>';
+  h += '</div>';
 
   h += '<div class="card"><h2>项目阶段</h2>';
   for (var i = 0; i < p.stages.length; i++) {
