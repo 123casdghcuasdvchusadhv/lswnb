@@ -252,6 +252,10 @@ function esc(s) {
   return String(s).replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
+function escAttr(s) {
+  return esc(s).replace(/"/g,'&quot;');
+}
+
 function toast(msg) {
   var t = document.getElementById('toast');
   t.textContent = msg;
@@ -338,7 +342,7 @@ function addProject() {
 
   var stageList = [];
   for (var i = 0; i < STAGES.length; i++) {
-    stageList.push({ name: STAGES[i], done: false });
+    stageList.push({ name: STAGES[i], done: false, note: '' });
   }
 
   projects.push({
@@ -515,6 +519,11 @@ function renderDetail() {
             '<input type="checkbox" ' + (s.done ? 'checked' : '') +
             ' onchange="toggleStage(' + p.id + ',' + i + ')"> ' +
             '<span class="sno">' + (i + 1) + '</span> <span class="sname">' + s.name + '</span></label>';
+    if (i === 0) {
+      html += '<div style="margin:0 0 8px 34px;">' +
+              '<input id="q' + p.id + '" style="width:92%; max-width:520px;" placeholder="在这里写下你的问题，比如：怎么让花盆自动浇水？" value="' +
+              escAttr(s.note || '') + '" onchange="saveQuestion(' + p.id + ', this.value)"></div>';
+    }
   }
 
   // 2. 过程记录（时间线）
@@ -597,6 +606,14 @@ function toggleStage(id, index) {
   renderStats();
   renderList();
   renderDetail();
+}
+
+// 保存「提出问题」这一步里填的具体问题
+function saveQuestion(id, text) {
+  var p = findProject(id);
+  p.stages[0].note = text.trim();
+  save();
+  toast('问题已保存 ✔');
 }
 
 function addRecord(id) {
@@ -710,7 +727,11 @@ function openParent(id) {
   h += '<h1>🛰️ ' + esc(p.name) + ' · 成长档案</h1>';
   h += '<div class="card"><p style="margin:4px 0;">主题：' + esc(p.theme) +
        '　👥 成员：' + (p.members.length ? esc(p.members.join('、')) : '（未填写）') + '</p>';
-  h += '<p style="margin:4px 0; color:#7a8699;">项目进度：' + d + '/' + p.stages.length + '</p></div>';
+  h += '<p style="margin:4px 0; color:#7a8699;">项目进度：' + d + '/' + p.stages.length + '</p>';
+  if (p.stages[0].note) {
+    h += '<p style="margin:4px 0; color:#3b5bdb;"><b>核心问题：</b>' + esc(p.stages[0].note) + '</p>';
+  }
+  h += '</div>';
 
   h += '<div class="card" style="text-align:center;"><h2>能力雷达</h2>' + radarSVG(p.ability, 260) + '</div>';
 
@@ -781,6 +802,9 @@ function exportHTML(id) {
   for (var i = 0; i < p.stages.length; i++) {
     h += '<div class="stage"><span>' + (i + 1) + '. ' + p.stages[i].name + '</span>' +
          (p.stages[i].done ? '<span class="ok">已完成 ✔</span>' : '<span style="color:#7a8699;">未完成</span>') + '</div>';
+    if (i === 0 && p.stages[i].note) {
+      h += '<p style="color:#3b5bdb; font-size:14px;">问题：' + esc(p.stages[i].note) + '</p>';
+    }
   }
 
   h += '<h2>能力雷达</h2><div style="text-align:center;">' + radarSVG(p.ability, 260) + '</div>';
@@ -819,7 +843,9 @@ function exportTxt(id) {
 
   t += '【阶段进度】\n';
   for (var i = 0; i < p.stages.length; i++) {
-    t += (i + 1) + '. ' + p.stages[i].name + (p.stages[i].done ? ' 已完成' : ' 未完成') + '\n';
+    t += (i + 1) + '. ' + p.stages[i].name + (p.stages[i].done ? ' 已完成' : ' 未完成');
+    if (i === 0 && p.stages[i].note) t += '（问题：' + p.stages[i].note + '）';
+    t += '\n';
   }
 
   t += '\n【能力评分】\n';
