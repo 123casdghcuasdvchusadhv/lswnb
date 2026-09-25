@@ -221,6 +221,22 @@
   #aiMsgs::-webkit-scrollbar { width:5px; }
   #aiMsgs::-webkit-scrollbar-thumb { background:#c8d2f0; border-radius:3px; }
 
+  /* 老师端 */
+  .teach-banner {
+    background:#fff3bf; border:1px solid #ffd43b; color:#5c4d00;
+    border-radius:12px; padding:10px 12px; margin-bottom:12px;
+    font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;
+  }
+  .classrow {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    background:#f7f9fd; border:1px solid #e3e8f5; border-radius:10px;
+    padding:8px 10px; margin:6px 0; font-size:13px;
+  }
+  .classrow .cwho { font-weight:bold; color:var(--primary); min-width:70px; }
+  .classrow .cname { font-weight:bold; }
+  .classrow .ctag { background:#eef2ff; color:#3b5bdb; border-radius:20px; padding:2px 8px; font-size:12px; }
+  .classrow button { margin-left:auto; }
+
   /* 提示条 */
   #toast {
     position:fixed; left:50%; bottom:28px; transform:translateX(-50%) translateY(80px);
@@ -458,11 +474,16 @@ function aiMembersHint(p) {
 }
 
 function save() {
+  if (viewAs) { localStorage.setItem(viewAs, JSON.stringify(projects)); return; }
   localStorage.setItem(currentUser ? 'ct_' + currentUser : 'ctProjects', JSON.stringify(projects));
 }
 
 // ---------- 账户（注册 / 登录 / 退出） ----------
 var userNames = JSON.parse(localStorage.getItem('ct_users') || '{}');
+var viewAs = null;   // 老师查看学生项目时的存储键（临时指向学生数据）
+
+// 老师口令（演示用，写死在网页里；正式版必须放在服务器上）
+var TEACHER_KEY = 'xingji2026';
 
 // 防爆破：连续输错 3 次，锁 30 秒
 var failTimes = 0, lockUntil = 0;
@@ -487,12 +508,19 @@ async function deriveKey(pass, salt) {
 function renderUser() {
   var box = document.getElementById('userbox');
   if (currentUser) {
-    box.innerHTML = '<span class="uname">👤 ' + esc(currentUser) + '</span>' +
+    var isT = isTeacher();
+    box.innerHTML = '<span class="uname">' + (isT ? '🧑‍🏫' : '👤') + ' ' + esc(currentUser) +
+                    (isT ? '（老师）' : '（学生）') + '</span>' +
+                    (isT ? '<button onclick="openClass()">📚 班级总览</button>' : '') +
                     '<button onclick="doLogout()">退出</button>';
   } else {
     box.innerHTML = '<button onclick="openAccount(\'login\')">登录</button>' +
                     '<button onclick="openAccount(\'reg\')">注册</button>';
   }
+}
+
+function isTeacher() {
+  return !!(currentUser && userNames[currentUser] && userNames[currentUser].role === 'teacher');
 }
 
 function openAccount(mode) {
@@ -513,10 +541,14 @@ function openAccount(mode) {
       '<input id="acUser" type="text" placeholder="用户名：2-16位，中英文、数字、下划线">' +
       '<input id="acPass" type="password" placeholder="密码：至少6位，含字母和数字">' +
       '<input id="acPass2" type="password" placeholder="再输一次密码">' +
+      '<select id="acRole" onchange="var k=document.getElementById(\'acTKey\'); k.style.display=this.value===\'teacher\'?\'block\':\'none\';" style="width:92%; display:block; margin:6px 0;">' +
+      '<option value="student">我是学生</option>' +
+      '<option value="teacher">我是老师</option></select>' +
+      '<input id="acTKey" type="password" placeholder="老师口令（当老师要填）" style="width:92%; display:none; margin:6px 0;">' +
       '<div style="margin-top:12px; text-align:right;">' +
       '<button class="btn-g" onclick="closeModal()">取消</button> ' +
       '<button class="btn-p" onclick="doReg()">注册</button></div>' +
-      '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，正式上线需要服务器数据库。</p>';
+      '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，老师口令写死在网页里，正式上线需要服务器。</p>';
   }
   document.getElementById('mask').className = 'mask show';
 }
@@ -533,6 +565,11 @@ async function doLogin() {
     closeModal();
     toast(locked2 ? '连续输错 3 次，锁定 30 秒' : '用户名或密码不对');
     return;
+  }
+  // 旧账号没角色字段，补成学生
+  if (!rec.role) {
+    rec.role = 'student';
+    localStorage.setItem('ct_users', JSON.stringify(userNames));
   }
   var ok;
   if (rec.s) {
@@ -580,9 +617,15 @@ async function doReg() {
   if (p !== p2) { toast('两次密码不一致'); return; }
   if (userNames[u]) { toast('这个用户名已被注册'); return; }
   if (u === 'users' || u === 'login' || u === 'login_s') { toast('这个名字不能用'); return; }
+  var roleEl = document.getElementById('acRole');
+  var role = roleEl && roleEl.value === 'teacher' ? 'teacher' : 'student';
+  if (role === 'teacher') {
+    var tk = document.getElementById('acTKey');
+    if (!tk || tk.value !== TEACHER_KEY) { toast('老师口令不对，问老师要口令'); return; }
+  }
   var s = randSalt();
   var h = await deriveKey(p, s);
-  userNames[u] = { s: s, h: h, created: Date.now() };
+  userNames[u] = { s: s, h: h, created: Date.now(), role: role };
   localStorage.setItem('ct_users', JSON.stringify(userNames));
   applyAccount(u, false);
   closeModal();
@@ -593,6 +636,7 @@ function doLogout() {
   localStorage.removeItem('ct_login');
   sessionStorage.removeItem('ct_login_s');
   currentUser = '';
+  viewAs = null;
   projects = JSON.parse(localStorage.getItem('ctProjects') || '[]');
   currentId = null;
   renderUser();
@@ -604,6 +648,7 @@ function doLogout() {
 
 function applyAccount(u, remember) {
   currentUser = u;
+  viewAs = null;
   if (remember === true) {
     localStorage.setItem('ct_login', u);
     sessionStorage.removeItem('ct_login_s');
@@ -886,6 +931,12 @@ function renderDetail() {
 
   var html = '<div class="box">';
   tmpAbility = p.ability.slice();
+
+  // 老师查看学生项目时的提示横幅
+  if (viewAs) {
+    html += '<div class="teach-banner">🧑‍🏫 老师模式：正在查看「' + esc(viewAs.slice(3)) + '」的项目。' +
+            '<button class="btn-g" onclick="backToWork()">退出查看</button></div>';
+  }
   html += '<div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">';
   html += '<div><h2 style="margin:0; color:var(--primary);">' + esc(p.name) + '</h2>' +
           '<p style="margin:6px 0 0; font-size:13px; color:var(--muted);">主题：' + esc(p.theme) +
@@ -1593,6 +1644,102 @@ function aiNext(p) {
 function aiStage(i) {
   var tips = AI_STAGE_TIPS[i];
   return tips.join('\n');
+}
+
+// ---------- 老师端：班级项目总览 ----------
+// 枚举本机 localStorage 里所有键（浏览器标准接口）
+function storeKeys() {
+  var ks = [];
+  for (var i = 0; i < localStorage.length; i++) ks.push(localStorage.key(i));
+  return ks;
+}
+
+// 收集本机浏览器里所有学生账号的项目
+function classList() {
+  var out = [];
+  var keys = storeKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.indexOf('ct_') !== 0) continue;
+    if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s') continue;
+    var who = k.slice(3);
+    if (who === currentUser) continue;
+    if (userNames[who] && userNames[who].role === 'teacher') continue;
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { continue; }
+    for (var j = 0; j < arr.length; j++) {
+      out.push({ who: who, p: arr[j] });
+    }
+  }
+  return out;
+}
+
+function openClass() {
+  if (!isTeacher()) return;
+  viewAs = null;
+  currentId = null;
+  renderClassOverview();
+  document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
+}
+
+function renderClassOverview() {
+  var box = document.getElementById('detail');
+  var list = classList();
+  var stuSet = {}, projN = 0, doneN = 0, pending = 0;
+  for (var i = 0; i < list.length; i++) {
+    stuSet[list[i].who] = 1;
+    projN++;
+    var d = 0;
+    for (var s = 0; s < list[i].p.stages.length; s++) if (list[i].p.stages[s].done) d++;
+    doneN += d;
+    if (!list[i].p.mentor) pending++;
+  }
+  var h = '<div class="box">';
+  h += '<h2>📚 班级项目总览</h2>';
+  h += '<p style="font-size:12px;color:var(--muted);">共 ' + Object.keys(stuSet).length + ' 名学生、' + projN +
+       ' 个项目，平均进度 ' + (projN ? Math.round(doneN / projN / 5 * 100) : 0) + '%，待点评 ' + pending + ' 个。</p>';
+  if (!list.length) {
+    h += '<p>本浏览器里还没有学生账号和项目。让几位同学在同一台电脑上用「注册」建学生账号、创建项目，你就能在这里看到他们。</p>';
+  } else {
+    for (var i2 = 0; i2 < list.length; i2++) {
+      var it = list[i2];
+      var d2 = 0;
+      for (var s2 = 0; s2 < it.p.stages.length; s2++) if (it.p.stages[s2].done) d2++;
+      var pct = Math.round(d2 / it.p.stages.length * 100);
+      h += '<div class="classrow"><span class="cwho">👤 ' + esc(it.who) + '</span>' +
+           '<span class="cname">' + esc(it.p.name) + '</span>' +
+           '<span class="ctag">' + esc(it.p.theme) + '</span>' +
+           '<span class="ctag">' + pct + '%</span>' +
+           '<span class="ctag">' + (it.p.mentor ? '✅已点评' : '⬜未点评') + '</span>' +
+           '<button class="btn-p" onclick="teacherOpen(\'' + it.who + '\',' + it.p.id + ')">查看 / 点评</button></div>';
+    }
+  }
+  h += '<div style="margin-top:12px;"><button class="btn-g" onclick="backToWork()">← 返回我的工作台</button> ' +
+       '<span class="tips" style="font-size:12px;color:var(--muted);">演示版：班级数据来自这台电脑浏览器里注册的学生账号，换电脑看不到。</span></div>';
+  h += '</div>';
+  box.innerHTML = h;
+}
+
+// 老师进入某个学生的项目（可修改，点保存会写回学生数据）
+function teacherOpen(who, pid) {
+  viewAs = 'ct_' + who;
+  projects = JSON.parse(localStorage.getItem(viewAs) || '[]');
+  currentId = pid;
+  renderStats();
+  renderDetail();
+  document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
+}
+
+// 从班级总览 / 学生项目回到老师自己的工作台
+function backToWork() {
+  viewAs = null;
+  currentId = null;
+  projects = JSON.parse(localStorage.getItem(currentUser ? 'ct_' + currentUser : 'ctProjects') || '[]');
+  renderUser();
+  renderStats();
+  renderList();
+  renderDetail();
+  toast('回到工作台');
 }
 
 // 页面打开时先渲染
