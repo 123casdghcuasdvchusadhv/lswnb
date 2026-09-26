@@ -495,7 +495,7 @@ var AI_STAGE_TIPS = {
   2: [
     '每天固定时间记录，数据才有可比性，比如每天下午 5 点测一次',
     '照片是最好的记录！同一个角度拍，前后对比一眼就能看出来',
-    '用表格记：日期、观察内容、数据、备注，四列就够了',
+    '表格里把每次观察的日期记成一行，攒成你的观察记录',
     '把「意外」也记下来：哪天没浇水反而长得好？那可能是最重要的发现'
   ],
   3: [
@@ -1103,7 +1103,7 @@ function addProject() {
     reviews: [],
     mentor: '',
     ability: [4, 4, 4, 4],
-    table: { cols: ['日期', '观察数据', '备注'], rows: [] }
+    table: { cols: ['日期'], rows: [] }
   });
 
   document.getElementById('pname').value = '';
@@ -1711,19 +1711,14 @@ function exportTxt(id) {
 // 旧项目没有 table 字段时，给出默认表格结构
 function tblNorm(p) {
   if (!p.table || !p.table.cols || !p.table.rows) {
-    p.table = { cols: ['日期', '观察数据', '备注'], rows: [] };
+    p.table = { cols: ['日期'], rows: [] };
+  }
+  // 按需求：表格只保留「日期」一列（旧的三列数据自动归一，多余列不再显示也不保留）
+  if (p.table.cols.length !== 1) {
+    p.table.cols = [p.table.cols[0] || '日期'];
+    p.table.rows = p.table.rows.map(function (r) { return [r[0] || '']; });
   }
   return p.table;
-}
-
-// 加一列
-function addTCol(id) {
-  var p = findProject(id);
-  var t = tblNorm(p);
-  t.cols.push('新列');
-  for (var i = 0; i < t.rows.length; i++) t.rows[i].push('');
-  save();
-  renderDetail();
 }
 
 // 删一列（至少留 1 列）
@@ -1801,16 +1796,10 @@ function csvCell(s) {
 function tblHTML(p) {
   var t = tblNorm(p);
   var h = '<h3>数据表格</h3>';
-  h += '<p style="color:var(--muted); font-size:12px; margin:2px 0 8px;">把实验数据一行行记下来（如日期、温度、湿度），最后能导出成 Excel。</p>';
+  h += '<p style="color:var(--muted); font-size:12px; margin:2px 0 8px;">每次观察记一行日期，养成记录习惯，最后能导出成 Excel。</p>';
 
-  // 表头（可编辑列名）
-  h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">';
-  for (var i = 0; i < t.cols.length; i++) {
-    h += '<div style="display:flex; align-items:center; gap:2px;">' +
-         '<input id="tcol' + i + '" value="' + escAttr(t.cols[i]) + '" style="width:100px;">' +
-         '<button class="btn-g del" onclick="delTCol(' + p.id + ',' + i + ')" title="删列">✕</button></div>';
-  }
-  h += '<button class="btn-g" onclick="addTCol(' + p.id + ')">＋ 加一列</button></div>';
+  // 表头（固定一列：日期）
+  h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px; font-size:13px; color:#3b5bdb; font-weight:bold;">日期</div>';
 
   // 数据行
   if (t.rows.length === 0) {
@@ -1818,10 +1807,8 @@ function tblHTML(p) {
   } else {
     for (var r = 0; r < t.rows.length; r++) {
       h += '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;">';
-      for (var c = 0; c < t.cols.length; c++) {
-        h += '<input id="tcell' + r + '_' + c + '" value="' + escAttr(t.rows[r][c] || '') +
-             '" style="width:100px;" placeholder="' + escAttr(t.cols[c]) + '">';
-      }
+      h += '<input id="tcell' + r + '_0" value="' + escAttr(t.rows[r][0] || '') +
+           '" style="width:160px;" placeholder="如 2026/9/26">';
       h += '<button class="btn-g del" onclick="delTRow(' + p.id + ',' + r + ')">✕</button></div>';
     }
   }
