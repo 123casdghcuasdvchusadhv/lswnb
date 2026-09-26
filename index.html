@@ -546,7 +546,7 @@ function aiCoach(p) {
   // 1) 主题灵感（有就推一条）
   var ideas = AI_THEME_IDEAS[p.theme];
   if (ideas && ideas.length) {
-    picks.push({ tag: '💡 主题灵感', text: pickPool(ideas, s, k++) });
+    picks.push({ tag: '主题灵感', text: pickPool(ideas, s, k++) });
   }
 
   // 2) 当前该做的事：第一个未完成的阶段 → 阶段锦囊；全完成了 → 祝贺
@@ -554,26 +554,26 @@ function aiCoach(p) {
   for (var i = 0; i < p.stages.length; i++) { if (!p.stages[i].done) { nextIdx = i; break; } }
   if (nextIdx >= 0) {
     var tips = AI_STAGE_TIPS[nextIdx];
-    picks.push({ tag: '📋 先把「' + p.stages[nextIdx].name + '」做好', text: pickPool(tips, s, k++) });
+    picks.push({ tag: '先把「' + p.stages[nextIdx].name + '」做好', text: pickPool(tips, s, k++) });
     if (nextIdx === 0 && p.stages[0].note) {
-      picks.push({ tag: '🎯 针对你提的问题', text: pickPool(PROBLEM_TIPS, s, k++).replace('{q}', esc(p.stages[0].note)) });
+      picks.push({ tag: '针对你提的问题', text: pickPool(PROBLEM_TIPS, s, k++).replace('{q}', esc(p.stages[0].note)) });
     }
   } else {
-    picks.push({ tag: '🎉 五个阶段全完成', text: pickPool(DONE_TIPS, s, k++) });
+    picks.push({ tag: '五个阶段全完成', text: pickPool(DONE_TIPS, s, k++) });
   }
 
   // 3) 通用提醒（数据感知，挑没做的；全部随批次轮换）
   if (p.stages[0].note && nextIdx !== 0 && picks.length < 3 && findProject(currentId) === p) {
-    picks.push({ tag: '📝 你们的问题', text: '别忘了在档案里把问题「' + esc(p.stages[0].note) + '」和结论对应起来。' });
+    picks.push({ tag: '你们的问题', text: '别忘了在档案里把问题「' + esc(p.stages[0].note) + '」和结论对应起来。' });
   } else if (picks.length < 3 && !p.members.length) {
-    picks.push({ tag: '👥 合作建议', text: pickPool(AI_GENERAL_TIPS, s, k++) });
+    picks.push({ tag: '合作建议', text: pickPool(AI_GENERAL_TIPS, s, k++) });
   } else if (picks.length < 3) {
-    picks.push({ tag: '✨ 小提示', text: pickPool(AI_GENERAL_TIPS, s, k++) });
+    picks.push({ tag: '小提示', text: pickPool(AI_GENERAL_TIPS, s, k++) });
   }
 
   var h = '<div class="box ai-box">';
-  h += '<h3 style="display:flex;align-items:center;gap:8px;">🤖 AI 教练 <span class="badge">第 ' + (aiSeed % 999 + 1) + ' 批</span>' +
-       '<button class="btn-g" style="margin-left:auto;" onclick="aiNext()">🔁 换一批</button></h3>';
+  h += '<h3 style="display:flex;align-items:center;gap:8px;">AI 教练 <span class="badge">第 ' + (aiSeed % 999 + 1) + ' 批</span>' +
+       '<button class="btn-g" style="margin-left:auto;" onclick="aiNext()">换一批</button></h3>';
   h += '<ul>';
   for (var k2 = 0; k2 < picks.length; k2++) {
     h += '<li><b>' + picks[k2].tag + '</b><br>' + picks[k2].text + '</li>';
