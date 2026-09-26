@@ -2242,7 +2242,7 @@ function claimStudent(who) {
 function unassignStudent(who) {
   if ((!isTeacher() && !isAdmin()) || !userNames[who]) return;
   if (!confirm('把 ' + who + ' 移出你的班？')) return;
-  delete userNames[who].teacher;
+  userNames[who].teacher = '';   // 置空而非删字段：服务器按账号合并，删字段不会跨设备传递
   localStorage.setItem('ct_users', JSON.stringify(userNames));
   renderUser();
   renderStats();
