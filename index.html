@@ -357,6 +357,7 @@
       clearTimeout(timers[k]);
       timers[k] = setTimeout(flush, 400);
     }
+    var pushed = 0;
     function flush() {
       var batch = {}, has = false;
       for (var k in dirty) if (dirty.hasOwnProperty(k)) { batch[k] = dirty[k]; has = true; }
@@ -366,6 +367,12 @@
       p.open('POST', '/api/store', true);
       p.setRequestHeader('Content-Type', 'application/json');
       p.send(JSON.stringify({ t: TOKEN, batch: batch }));
+      p.onreadystatechange = function () {
+        if (p.readyState === 4 && p.status === 200 && window.__xjBadge) {
+          pushed += Object.keys(batch).length;
+          window.__xjBadge.textContent = '🟢 已连接服务器 · 已推送 ' + pushed + ' 条';
+        }
+      };
     }
     // 旧数据搬家：本机有、但服务器还没有的账号数据，自动补传上云一次（服务器已有的不动 → 以服务器为准）
     var localOnly = [];
@@ -394,12 +401,22 @@
       timers[k] = setTimeout(flush, 400);
     };
     window.addEventListener('beforeunload', function () { flush(); });
-    // 页面左下角亮一盏小绿灯，表示已连上服务器
+    // 页面左下角亮一盏小绿灯，表示已连上服务器（推送条数实时可见）
     window.addEventListener('DOMContentLoaded', function () {
       var b = document.createElement('div');
       b.textContent = '🟢 已连接服务器';
       b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:999;background:#ebfbee;color:#2b8a3e;border:1px solid #69db7c;border-radius:20px;padding:3px 12px;font-size:12px;';
       document.body.appendChild(b);
+      window.__xjBadge = b;
+    });
+  } else {
+    // 没连上服务器（GitHub 演示页、或者接口没通）：挂一盏灰灯，让你一眼能看出来
+    window.addEventListener('DOMContentLoaded', function () {
+      var b = document.createElement('div');
+      b.textContent = '⚪ 本机模式：数据只存这台电脑';
+      b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:999;background:#f1f3f5;color:#868e96;border:1px solid #dee2e6;border-radius:20px;padding:3px 12px;font-size:12px;';
+      document.body.appendChild(b);
+      window.__xjBadge = null;
     });
   }
 })();
