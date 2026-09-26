@@ -1311,10 +1311,12 @@ function renderDetail() {
             '<button class="btn-g del" onclick="delReview(' + p.id + ',' + m + ')">✕</button></div>';
   }
 
-  // 4. 导师点评
-  html += '<h3>导师点评</h3>';
-  html += '<textarea id="mentorText" placeholder="老师的点评">' + esc(p.mentor || '') + '</textarea><br>';
-  html += '<button class="btn-p" onclick="saveMentor(' + p.id + ')">保存点评</button>';
+  // 4. 导师点评 —— 只给老师看：学生自己查看详情时不显示（老师从班级总览「查看/点评」进来 = 老师模式）
+  if (viewAs) {
+    html += '<h3>导师点评</h3>';
+    html += '<textarea id="mentorText" placeholder="老师的点评">' + esc(p.mentor || '') + '</textarea><br>';
+    html += '<button class="btn-p" onclick="saveMentor(' + p.id + ')">保存点评</button>';
+  }
 
   // 5. 能力雷达（滑杆调节）
   html += '<h3>能力雷达</h3>';
