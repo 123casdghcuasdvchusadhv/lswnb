@@ -345,6 +345,7 @@
   } catch (e) { IS_SYNC = false; }
   window.__xjCache = cache;
   window.__xjSync = IS_SYNC;
+  window.__xjTok = TOKEN;
 
   if (IS_SYNC) {
     var _ls = window.localStorage;
@@ -653,6 +654,25 @@ function applyRoleUI() {
 }
 
 // ---------- 进班申请（学生申请 → 老师/管理员审批） ----------
+// 问服务器：这个邀请码在别的设备注册的老师那里存在吗（服务器是所有设备的数据中心）
+function checkCodeOnServer(code) {
+  return new Promise(function (resolve) {
+    try {
+      var x = new XMLHttpRequest();
+      x.open('POST', '/api/checkcode', true);
+      x.setRequestHeader('Content-Type', 'application/json');
+      x.onreadystatechange = function () {
+        if (x.readyState === 4) {
+          try {
+            var r = JSON.parse(x.responseText);
+            resolve(r && r.ok ? r.teacher : null);
+          } catch (e) { resolve(null); }
+        }
+      };
+      x.send(JSON.stringify({ t: window.__xjTok || 'xjstar2026', code: code }));
+    } catch (e) { resolve(null); }
+  });
+}
 // ct_apps = { 学生名: {tid:老师名, time:时间} }
 function pendingApps() {
   try { return JSON.parse(localStorage.getItem('ct_apps') || '{}'); } catch (e) { return {}; }
@@ -841,7 +861,12 @@ async function doReg() {
       for (var tu in userNames) {
         if (userNames[tu] && userNames[tu].role === 'teacher' && userNames[tu].code === tcode) { tname = tu; break; }
       }
-      if (!tname) { toast('邀请码不存在：请确认老师已在服务器页面(左下角有绿点)登录过一次，数据才会同步过来'); return; }
+      if (!tname && window.__xjSync) {
+        // 本机没有这位老师：去服务器上问（服务器是所有设备共同的数据）
+        var tFromServer = await checkCodeOnServer(tcode);
+        if (tFromServer) tname = tFromServer;
+      }
+      if (!tname) { toast('邀请码不存在：请确认老师已在服务器页面（左下角绿点）注册过账号'); return; }
     }
     userNames[u] = { s: s, h: h, created: Date.now(), role: 'student', teacher: tname || undefined };
   }
