@@ -553,7 +553,7 @@ var userNames = JSON.parse(localStorage.getItem('ct_users') || '{}');
 var viewAs = null;   // 老师查看学生项目时的存储键（临时指向学生数据）
 
 // 老师口令（演示用，写死在网页里；正式版必须放在服务器上）
-var TEACHER_KEY = 'xingji2026';
+var TEACHER_KEY = '123QwE.apple';   // 老师口令（演示用，写死在网页里；正式版必须放服务器）
 
 // 防爆破：连续输错 3 次，锁 30 秒
 var failTimes = 0, lockUntil = 0;
@@ -566,13 +566,24 @@ function randSalt() {
 }
 
 async function deriveKey(pass, salt) {
-  var enc = new TextEncoder();
-  var km = await crypto.subtle.importKey(
-    'raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
-  var bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
-    km, 256);
-  return btoa(String.fromCharCode.apply(null, new Uint8Array(bits)));
+  // 正常环境（https 页面）：PBKDF2 十万次迭代，给密码"撒盐加密"
+  try {
+    if (typeof crypto === 'undefined' || !crypto.subtle) throw new Error('no-subtle');
+    var enc = new TextEncoder();
+    var km = await crypto.subtle.importKey(
+      'raw', enc.encode(pass), 'PBKDF2', false, ['deriveBits']);
+    var bits = await crypto.subtle.deriveBits(
+      { name: 'PBKDF2', salt: enc.encode(salt), iterations: 100000, hash: 'SHA-256' },
+      km, 256);
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(bits)));
+  } catch (e) {
+    // http 页面（咱们的服务器暂时没上 https）：浏览器不允许用 crypto.subtle，
+    // 退回简易算法——仍然"撒盐"，但强度低。演示够用，正式版必须上 https。
+    var h = 0;
+    var s2 = String(pass) + '|' + String(salt);
+    for (var i = 0; i < s2.length; i++) h = ((h << 5) - h + s2.charCodeAt(i)) | 0;
+    return 'demo:' + h;
+  }
 }
 
 function renderUser() {
