@@ -333,16 +333,18 @@
   var TOKEN = 'xjstar2026';   // 演示用钥匙（写在页面里，正式版要换成真登录）
   var cache = {};
   var IS_SYNC = false;
+  var WHY = '';
   try {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', '/api/store?t=' + TOKEN, false);
-    xhr.timeout = 5000;
+    // 注意：同步请求不能设 timeout（浏览器会抛 InvalidAccessError），这里故意不设
     xhr.send();
     if (xhr.status === 200) {
       var got = JSON.parse(xhr.responseText);
       if (got && got.ok) { cache = got.store || {}; IS_SYNC = true; }
-    }
-  } catch (e) { IS_SYNC = false; }
+      else { WHY = '接口返回异常'; }
+    } else { WHY = '接口状态 ' + xhr.status; }
+  } catch (e) { WHY = e.name + ':' + e.message; IS_SYNC = false; }
   window.__xjCache = cache;
   window.__xjSync = IS_SYNC;
   window.__xjTok = TOKEN;
@@ -413,7 +415,8 @@
     // 没连上服务器（GitHub 演示页、或者接口没通）：挂一盏灰灯，让你一眼能看出来
     window.addEventListener('DOMContentLoaded', function () {
       var b = document.createElement('div');
-      b.textContent = '⚪ 本机模式：数据只存这台电脑';
+      b.textContent = '⚪ 本机模式：' + (WHY || '未连上服务器');
+      b.title = '没连上 /api/store' + (WHY ? '，原因：' + WHY : '');
       b.style.cssText = 'position:fixed;left:10px;bottom:10px;z-index:999;background:#f1f3f5;color:#868e96;border:1px solid #dee2e6;border-radius:20px;padding:3px 12px;font-size:12px;';
       document.body.appendChild(b);
       window.__xjBadge = null;
