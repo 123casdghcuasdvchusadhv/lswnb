@@ -554,6 +554,7 @@ var viewAs = null;   // 老师查看学生项目时的存储键（临时指向�
 
 // 老师口令（演示用，写死在网页里；正式版必须放在服务器上）
 var TEACHER_KEY = '123QwE.apple';   // 老师口令（演示用，写死在网页里；正式版必须放服务器）
+var ADMIN_KEY = 'guanli2026';       // 管理员口令（同上，演示用；正式版必须放服务器）
 
 // 防爆破：连续输错 3 次，锁 30 秒
 var failTimes = 0, lockUntil = 0;
@@ -589,11 +590,13 @@ async function deriveKey(pass, salt) {
 function renderUser() {
   var box = document.getElementById('userbox');
   if (currentUser) {
-    var isT = isTeacher();
-    var myT = isT ? '' : ((userNames[currentUser] && userNames[currentUser].teacher) || '');
-    box.innerHTML = '<span class="uname">' + (isT ? '🧑‍🏫' : '👤') + ' ' + esc(currentUser) +
-                    (isT ? '（老师）' : '（学生' + (myT ? ' · ' + esc(myT) + '班' : ' · 未分配') + '）') + '</span>' +
-                    (isT ? '<button onclick="openClass()">📚 班级总览</button>' : '') +
+    var isA = isAdmin();
+    var isM = isTeacher() || isA;   // 管理视角（老师 / 管理员）
+    var myT = isM ? '' : ((userNames[currentUser] && userNames[currentUser].teacher) || '');
+    var mark = isA ? '👑' : (isTeacher() ? '🧑‍🏫' : '👤');
+    var tag = isA ? '管理员' : (isTeacher() ? '老师' : ('学生' + (myT ? ' · ' + esc(myT) + '班' : ' · 未分配')));
+    box.innerHTML = '<span class="uname">' + mark + ' ' + esc(currentUser) + '（' + tag + '）</span>' +
+                    (isM ? '<button onclick="openClass()">' + (isA ? '🌐 全局总览' : '📚 班级总览') + '</button>' : '') +
                     '<button onclick="doLogout()">退出</button>' +
                     '<button class="btn-ghost" onclick="wipeAll()" style="border:1px solid #e03131;color:#e03131;background:#fff;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;">注销全部账号</button>';
   } else {
@@ -606,15 +609,20 @@ function isTeacher() {
   return !!(currentUser && userNames[currentUser] && userNames[currentUser].role === 'teacher');
 }
 
-// 老师登录后：隐藏「新建项目」框、搜索工具栏、学生列表，只留班级总览
+// 管理员：能看到全部老师、全部学生、全部项目
+function isAdmin() {
+  return !!(currentUser && userNames[currentUser] && userNames[currentUser].role === 'admin');
+}
+
+// 老师/管理员登录后：隐藏「新建项目」框、搜索工具栏、学生列表，只留总览
 function applyRoleUI() {
-  var isT = isTeacher();
+  var isM = isTeacher() || isAdmin();
   var nb = document.getElementById('newBox');
   var tb = document.getElementById('toolbar');
   var ls = document.getElementById('list');
-  if (nb) nb.style.display = isT ? 'none' : '';
-  if (tb) tb.style.display = isT ? 'none' : '';
-  if (ls) ls.style.display = isT ? 'none' : '';
+  if (nb) nb.style.display = isM ? 'none' : '';
+  if (tb) tb.style.display = isM ? 'none' : '';
+  if (ls) ls.style.display = isM ? 'none' : '';
 }
 
 function openAccount(mode) {
@@ -637,15 +645,17 @@ function openAccount(mode) {
       '<input id="acUser" type="text" placeholder="用户名：2-16位，中英文、数字、下划线">' +
       '<input id="acPass" type="password" placeholder="密码：至少6位，含字母和数字">' +
       '<input id="acPass2" type="password" placeholder="再输一次密码">' +
-      '<select id="acRole" onchange="var k=document.getElementById(\'acTKey\'); k.style.display=this.value===\'teacher\'?\'block\':\'none\';" style="width:92%; display:block; margin:6px 0;">' +
+      '<select id="acRole" onchange="var v=this.value; var k1=document.getElementById(\'acTKey\'),k2=document.getElementById(\'acAkKey\'); if(k1)k1.style.display=v===\'teacher\'?\'block\':\'none\'; if(k2)k2.style.display=v===\'admin\'?\'block\':\'none\';" style="width:92%; display:block; margin:6px 0;">' +
       '<option value="student">我是学生</option>' +
-      '<option value="teacher">我是老师</option></select>' +
+      '<option value="teacher">我是老师</option>' +
+      '<option value="admin">我是管理员</option></select>' +
       '<input id="acTKey" type="password" placeholder="老师口令（当老师要填）" style="width:92%; display:none; margin:6px 0;">' +
+      '<input id="acAkKey" type="password" placeholder="管理员口令（当管理员要填）" style="width:92%; display:none; margin:6px 0;">' +
       '<input id="acTCode" type="text" placeholder="老师邀请码（学生填，可先不填）" style="width:92%; margin:6px 0;">' +
       '<div style="margin-top:12px; text-align:right;">' +
       '<button class="btn-g" onclick="closeModal()">取消</button> ' +
       '<button class="btn-p" onclick="doReg()">注册</button></div>' +
-      '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，老师口令写死在网页里，正式上线需要服务器。</p>';
+      '<p class="tips">⚠ 演示版说明：账号数据保存在本机浏览器，老师口令和管理员口令都写死在网页里，正式上线需要服务器。</p>';
   }
   document.getElementById('mask').className = 'mask show';
 }
@@ -721,15 +731,23 @@ async function doReg() {
   if (userNames[u]) { toast('这个用户名已被注册'); return; }
   if (u === 'users' || u === 'login' || u === 'login_s') { toast('这个名字不能用'); return; }
   var roleEl = document.getElementById('acRole');
-  var role = roleEl && roleEl.value === 'teacher' ? 'teacher' : 'student';
+  var role = 'student';
+  if (roleEl && roleEl.value === 'teacher') role = 'teacher';
+  else if (roleEl && roleEl.value === 'admin') role = 'admin';
   var tk = document.getElementById('acTKey');
   if (role === 'teacher') {
     if (!tk || tk.value !== TEACHER_KEY) { toast('老师口令不对，问老师要口令'); return; }
+  }
+  var ak = document.getElementById('acAkKey');
+  if (role === 'admin') {
+    if (!ak || ak.value !== ADMIN_KEY) { toast('管理员口令不对'); return; }
   }
   var s = randSalt();
   var h = await deriveKey(p, s);
   if (role === 'teacher') {
     userNames[u] = { s: s, h: h, created: Date.now(), role: 'teacher', code: genCode() };
+  } else if (role === 'admin') {
+    userNames[u] = { s: s, h: h, created: Date.now(), role: 'admin' };
   } else {
     // 学生：可填老师邀请码，填了分到对应老师班，不填则先「未分配」
     var tcode = document.getElementById('acTCode') ? document.getElementById('acTCode').value.trim().toUpperCase() : '';
@@ -778,11 +796,11 @@ function applyAccount(u, remember) {
   currentId = null;
   save();
   applyRoleUI();
-  if (isTeacher()) {
-    // 老师登录后直接进班级总览，不显示新建项目/列表
+  if (isTeacher() || isAdmin()) {
+    // 老师/管理员登录后直接进总览（老师=班级，管理员=全部账号），不显示新建项目/列表
     renderUser();
     renderStats();
-    renderClassOverview();
+    if (isAdmin()) renderGlobalOverview(); else renderClassOverview();
   } else {
     renderUser();
     renderStats();
@@ -867,6 +885,16 @@ function radarSVG(values, size) {
 
 // ---------- 顶部统计 ----------
 function renderStats() {
+  // 管理员：顶部统计显示全部老师/学生/项目
+  if (isAdmin()) {
+    var gg = allStudentsInfo();
+    document.getElementById('stats').innerHTML =
+      '<div class="stat"><b>' + gg.teachers.length + '</b><span>老师数</span></div>' +
+      '<div class="stat"><b>' + gg.stuN + '</b><span>学生数</span></div>' +
+      '<div class="stat"><b>' + gg.projN + '</b><span>项目总数</span></div>' +
+      '<div class="stat"><b>' + gg.pend + '</b><span>待点评</span></div>';
+    return;
+  }
   // 老师：顶部统计显示全班数据，而不是自己的（老师不建项目）
   if (isTeacher()) {
     var cl = classList();
@@ -1828,7 +1856,7 @@ function classList() {
     if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s') continue;
     var who = k.slice(3);
     if (who === currentUser) continue;
-    if (userNames[who] && userNames[who].role === 'teacher') continue; // 其他老师不算学生
+    if (userNames[who] && (userNames[who].role === 'teacher' || userNames[who].role === 'admin')) continue; // 老师/管理员账号不算学生
     var arr = [];
     try { arr = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { continue; }
     var items = [];
@@ -1841,11 +1869,11 @@ function classList() {
 }
 
 function openClass() {
-  if (!isTeacher()) return;
+  if (!isTeacher() && !isAdmin()) return;
   viewAs = null;
   currentId = null;
   applyRoleUI();
-  renderClassOverview();
+  if (isAdmin()) renderGlobalOverview(); else renderClassOverview();
   document.getElementById('detail').scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1921,9 +1949,123 @@ function renderClassOverview() {
   box.innerHTML = h;
 }
 
+// ---------- 管理员全局总览 ----------
+// 收集全部老师、全部学生（按班分组）、未分配学生，以及项目统计
+function allStudentsInfo() {
+  var teachers = [], groups = {};
+  for (var tu in userNames) {
+    if (userNames[tu] && userNames[tu].role === 'teacher') {
+      if (tu === currentUser) continue;   // 管理员不会也叫这个名字；保险跳过
+      teachers.push({ who: tu, code: userNames[tu].code || '' });
+      groups[tu] = { who: tu, code: userNames[tu].code || '', students: {} };
+    }
+  }
+  var free = [];
+  var keys = storeKeys();
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (k.indexOf('ct_') !== 0) continue;
+    if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s') continue;
+    var who = k.slice(3);
+    if (who === currentUser) continue;
+    var rec = userNames[who];
+    if (!rec || rec.role === 'teacher' || rec.role === 'admin') continue;
+    var arr = [];
+    try { arr = JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { continue; }
+    var items = [];
+    for (var j = 0; j < arr.length; j++) items.push({ who: who, p: arr[j] });
+    if (rec.teacher && groups[rec.teacher]) groups[rec.teacher].students[who] = items;
+    else free.push({ who: who, rec: rec, items: items });
+  }
+  var stuN = 0, projN = 0, pend = 0;
+  for (var g in groups) {
+    for (var w2 in groups[g].students) {
+      stuN++;
+      projN += groups[g].students[w2].length;
+      for (var it = 0; it < groups[g].students[w2].length; it++) if (!groups[g].students[w2][it].p.mentor) pend++;
+    }
+  }
+  for (var f = 0; f < free.length; f++) {
+    stuN++;
+    projN += free[f].items.length;
+    for (var it2 = 0; it2 < free[f].items.length; it2++) if (!free[f].items[it2].p.mentor) pend++;
+  }
+  return { teachers: teachers, groups: groups, free: free, stuN: stuN, projN: projN, pend: pend };
+}
+
+// 管理员视角：全部老师 + 全部学生与其项目（可查看/点评），+ 未分配学生
+function renderGlobalOverview() {
+  var box = document.getElementById('detail');
+  var g = allStudentsInfo();
+  var h = '<div class="box">';
+  h += '<h2>🌐 全局总览（管理员）</h2>';
+  h += '<p style="font-size:12px;color:var(--muted);">共 ' + g.teachers.length + ' 位老师、' + g.stuN +
+       ' 名学生、' + g.projN + ' 个项目，待点评 ' + g.pend + ' 个。</p>';
+
+  h += '<h3 style="margin-top:14px;">🧑‍🏫 全部老师（' + g.teachers.length + '）</h3>';
+  if (!g.teachers.length) {
+    h += '<p style="color:var(--muted);font-size:13px;">还没有老师。用老师口令注册第一个老师吧。</p>';
+  } else {
+    for (var t = 0; t < g.teachers.length; t++) {
+      var tw = g.teachers[t];
+      var cnt = 0;
+      for (var ww in g.groups[tw.who].students) cnt++;
+      h += '<div class="classrow"><span class="cwho">🧑‍🏫 ' + esc(tw.who) + '</span>' +
+           '<span class="ctag">邀请码 ' + esc(tw.code || '—') + '</span>' +
+           '<span class="ctag">' + cnt + ' 名学生</span></div>';
+    }
+  }
+
+  h += '<h3 style="margin-top:14px;">🧑‍🎓 全部学生与其项目（' + g.stuN + '）</h3>';
+  var anyStu = false;
+  for (var gt in g.groups) {
+    var stus = g.groups[gt].students;
+    var stKeys = Object.keys(stus);
+    if (!stKeys.length) continue;
+    h += '<p style="font-size:13px;margin-top:8px;">📍 <b>' + esc(gt) + '</b> 老师班：</p>';
+    for (var si = 0; si < stKeys.length; si++) {
+      var w3 = stKeys[si];
+      if (!stus[w3].length) {
+        h += '<div class="classrow"><span class="cwho">👤 ' + esc(w3) + '</span><span class="ctag">0 个项目</span></div>';
+        anyStu = true;
+        continue;
+      }
+      for (var pi = 0; pi < stus[w3].length; pi++) {
+        var pt = stus[w3][pi];
+        var dn = 0;
+        for (var sti = 0; sti < pt.p.stages.length; sti++) if (pt.p.stages[sti].done) dn++;
+        var ppp = Math.round(dn / pt.p.stages.length * 100);
+        h += '<div class="classrow"><span class="cwho">👤 ' + esc(w3) + '</span>' +
+             '<span class="cname">' + esc(pt.p.name) + '</span>' +
+             '<span class="ctag">' + esc(pt.p.theme) + '</span>' +
+             '<span class="ctag">' + ppp + '%</span>' +
+             '<span class="ctag">' + (pt.p.mentor ? '✅已点评' : '⬜未点评') + '</span>' +
+             '<button class="btn-p" onclick="teacherOpen(\'' + w3 + '\',' + pt.p.id + ')">查看 / 点评</button></div>';
+        anyStu = true;
+      }
+    }
+  }
+  if (!anyStu) h += '<p style="color:var(--muted);font-size:13px;">还没有学生注册或创建项目。</p>';
+
+  h += '<h3 style="margin-top:14px;">📥 未分配学生（' + g.free.length + '）</h3>';
+  if (!g.free.length) {
+    h += '<p style="color:var(--muted);font-size:13px;">没有未分配学生，大家的账号都有老师了。</p>';
+  } else {
+    for (var fi = 0; fi < g.free.length; fi++) {
+      h += '<div class="classrow"><span class="cwho">👤 ' + esc(g.free[fi].who) + '</span>' +
+           '<span class="ctag">' + g.free[fi].items.length + ' 个项目</span></div>';
+    }
+  }
+
+  h += '<div style="margin-top:12px;"><button class="btn-g" onclick="backToWork()">↻ 刷新</button> ' +
+       '<span class="tips" style="font-size:12px;color:var(--muted);">管理员能看全部账号（演示版：同一服务器上的数据）。</span></div>';
+  h += '</div>';
+  box.innerHTML = h;
+}
+
 // 老师接收未分配学生
 function claimStudent(who) {
-  if (!isTeacher() || !userNames[who]) return;
+  if ((!isTeacher() && !isAdmin()) || !userNames[who]) return;
   userNames[who].teacher = currentUser;
   localStorage.setItem('ct_users', JSON.stringify(userNames));
   renderUser();
@@ -1934,7 +2076,7 @@ function claimStudent(who) {
 
 // 老师把学生移出班级（学生回到「未分配」）
 function unassignStudent(who) {
-  if (!isTeacher() || !userNames[who]) return;
+  if ((!isTeacher() && !isAdmin()) || !userNames[who]) return;
   if (!confirm('把 ' + who + ' 移出你的班？')) return;
   delete userNames[who].teacher;
   localStorage.setItem('ct_users', JSON.stringify(userNames));
@@ -2002,9 +2144,9 @@ function backToWork() {
   applyRoleUI();
   renderUser();
   renderStats();
-  if (isTeacher()) {
-    renderClassOverview();   // 老师没有自己的项目，「工作台」就是班级总览
-    toast('回到班级总览');
+  if (isTeacher() || isAdmin()) {
+    if (isAdmin()) renderGlobalOverview(); else renderClassOverview();   // 管理角色没有自己的项目，「工作台」就是总览
+    toast(isAdmin() ? '回到全局总览' : '回到班级总览');
   } else {
     renderList();
     renderDetail();
@@ -2013,6 +2155,7 @@ function backToWork() {
 }
 
 // 页面打开时先渲染
+if (currentUser) applyRoleUI();   // 老师/管理员刷新页面后不显示学生列表
 renderUser();
 renderStats();
 renderList();
