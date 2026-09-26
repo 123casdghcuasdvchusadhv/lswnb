@@ -595,7 +595,12 @@ function renderUser() {
     var myT = isM ? '' : ((userNames[currentUser] && userNames[currentUser].teacher) || '');
     var mark = isA ? '👑' : (isTeacher() ? '🧑‍🏫' : '👤');
     var tag = isA ? '管理员' : (isTeacher() ? '老师' : ('学生' + (myT ? ' · ' + esc(myT) + '班' : ' · 未分配')));
+    // 未分配学生：右上角提醒补填老师邀请码
+    var needCode = (!isM && !myT)
+      ? '<span class="needcode" style="background:#fff8e1;border:1px solid #f0c040;border-radius:8px;padding:3px 8px;margin-left:6px;font-size:12px;color:#8a6d00;">📢 还没填老师邀请码<input id="myInvCode" type="text" placeholder="老师邀请码" style="width:76px;margin:0 4px;padding:2px 6px;border:1px solid #e0c860;border-radius:6px;font-size:12px;"><button onclick="fillMyCode()" style="padding:2px 8px;background:#f5c518;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">进班</button></span>'
+      : '';
     box.innerHTML = '<span class="uname">' + mark + ' ' + esc(currentUser) + '（' + tag + '）</span>' +
+                    needCode +
                     (isM ? '<button onclick="openClass()">' + (isA ? '🌐 全局总览' : '📚 班级总览') + '</button>' : '') +
                     '<button onclick="doLogout()">退出</button>' +
                     '<button class="btn-ghost" onclick="wipeAll()" style="border:1px solid #e03131;color:#e03131;background:#fff;padding:5px 10px;border-radius:8px;cursor:pointer;font-size:12px;">注销全部账号</button>';
@@ -623,6 +628,24 @@ function applyRoleUI() {
   if (nb) nb.style.display = isM ? 'none' : '';
   if (tb) tb.style.display = isM ? 'none' : '';
   if (ls) ls.style.display = isM ? 'none' : '';
+}
+
+// 「未分配」学生补填老师邀请码，直接进班（不用重新注册）
+function fillMyCode() {
+  if (!currentUser || isTeacher() || isAdmin()) return;
+  var codeEl = document.getElementById('myInvCode');
+  if (!codeEl) return;
+  var tcode = codeEl.value.trim().toUpperCase();
+  if (!tcode) { toast('请先输入老师的邀请码'); return; }
+  var tname = '';
+  for (var tu in userNames) {
+    if (userNames[tu] && userNames[tu].role === 'teacher' && userNames[tu].code === tcode) { tname = tu; break; }
+  }
+  if (!tname) { toast('邀请码不存在：请核对老师班级总览里显示的码'); return; }
+  userNames[currentUser].teacher = tname;
+  localStorage.setItem('ct_users', JSON.stringify(userNames));
+  renderUser();
+  toast('🎉 已进 ' + tname + ' 老师的班');
 }
 
 function openAccount(mode) {
