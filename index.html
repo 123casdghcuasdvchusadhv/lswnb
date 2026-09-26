@@ -366,6 +366,17 @@
       p.setRequestHeader('Content-Type', 'application/json');
       p.send(JSON.stringify({ t: TOKEN, batch: batch }));
     }
+    // 旧数据搬家：本机有、但服务器还没有的账号数据，自动补传上云一次（服务器已有的不动 → 以服务器为准）
+    var localOnly = [];
+    for (var li = 0; li < _ls.length; li++) {
+      var lk = _ls.key(li);
+      if (isSyncKey(lk) && cache[lk] === undefined) localOnly.push(lk);
+    }
+    for (var lj = 0; lj < localOnly.length; lj++) {
+      var lv = realGet(localOnly[lj]);
+      if (lv !== null) { cache[localOnly[lj]] = lv; dirty[localOnly[lj]] = lv; }
+    }
+    if (localOnly.length) flush();
     _ls.getItem = function (k) { if (isSyncKey(k) && cache[k] !== undefined) return cache[k]; return realGet(k); };
     _ls.setItem = function (k, v) {
       realSet(k, v);
@@ -830,7 +841,7 @@ async function doReg() {
       for (var tu in userNames) {
         if (userNames[tu] && userNames[tu].role === 'teacher' && userNames[tu].code === tcode) { tname = tu; break; }
       }
-      if (!tname) { toast('邀请码不存在：核对老师班级总览里显示的码，并在同一台电脑上注册'); return; }
+      if (!tname) { toast('邀请码不存在：请确认老师已在服务器页面(左下角有绿点)登录过一次，数据才会同步过来'); return; }
     }
     userNames[u] = { s: s, h: h, created: Date.now(), role: 'student', teacher: tname || undefined };
   }
