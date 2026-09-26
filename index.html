@@ -595,10 +595,21 @@ function renderUser() {
     var myT = isM ? '' : ((userNames[currentUser] && userNames[currentUser].teacher) || '');
     var mark = isA ? '👑' : (isTeacher() ? '🧑‍🏫' : '👤');
     var tag = isA ? '管理员' : (isTeacher() ? '老师' : ('学生' + (myT ? ' · ' + esc(myT) + '班' : ' · 未分配')));
-    // 未分配学生：右上角提醒补填老师邀请码
-    var needCode = (!isM && !myT)
-      ? '<span class="needcode" style="background:#fff8e1;border:1px solid #f0c040;border-radius:8px;padding:3px 8px;margin-left:6px;font-size:12px;color:#8a6d00;">📢 还没填老师邀请码<input id="myInvCode" type="text" placeholder="老师邀请码" style="width:76px;margin:0 4px;padding:2px 6px;border:1px solid #e0c860;border-radius:6px;font-size:12px;"><button onclick="fillMyCode()" style="padding:2px 8px;background:#f5c518;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">进班</button></span>'
-      : '';
+    // 未分配学生：右上角申请进班（下拉选老师 → 等老师审批，不再记邀请码）
+    var needCode = '';
+    if (!isM && !myT) {
+      var appsX = pendingApps();
+      var myAppX = appsX && appsX[currentUser];
+      if (myAppX) {
+        needCode = '<span class="needcode" style="background:#e8f5e9;border:1px solid #66bb6a;border-radius:8px;padding:3px 8px;margin-left:6px;font-size:12px;color:#2e7d32;">⏳ 已申请进 <b>' + esc(myAppX.tid) + '</b> 老师的班，等老师同意 <button onclick="cancelApply()" style="padding:2px 8px;background:#fff;border:1px solid #66bb6a;color:#2e7d32;border-radius:6px;font-size:12px;cursor:pointer;">取消</button></span>';
+      } else {
+        var opts = '';
+        for (var tu2 in userNames) {
+          if (userNames[tu2] && userNames[tu2].role === 'teacher') opts += '<option value="' + esc(tu2) + '">' + esc(tu2) + ' 老师</option>';
+        }
+        needCode = '<span class="needcode" style="background:#fff8e1;border:1px solid #f0c040;border-radius:8px;padding:3px 8px;margin-left:6px;font-size:12px;color:#8a6d00;">📢 还没进班<select id="myTeacherSel" style="margin:0 4px;padding:2px 6px;border:1px solid #e0c860;border-radius:6px;font-size:12px;">' + (opts || '<option value="">（还没有老师）</option>') + '</select><button onclick="requestJoin()" style="padding:2px 8px;background:#f5c518;color:#fff;border:none;border-radius:6px;font-size:12px;cursor:pointer;">申请进班</button></span>';
+      }
+    }
     box.innerHTML = '<span class="uname">' + mark + ' ' + esc(currentUser) + '（' + tag + '）</span>' +
                     needCode +
                     (isM ? '<button onclick="openClass()">' + (isA ? '🌐 全局总览' : '📚 班级总览') + '</button>' : '') +
@@ -630,22 +641,62 @@ function applyRoleUI() {
   if (ls) ls.style.display = isM ? 'none' : '';
 }
 
-// 「未分配」学生补填老师邀请码，直接进班（不用重新注册）
-function fillMyCode() {
+// ---------- 进班申请（学生申请 → 老师/管理员审批） ----------
+// ct_apps = { 学生名: {tid:老师名, time:时间} }
+function pendingApps() {
+  try { return JSON.parse(localStorage.getItem('ct_apps') || '{}'); } catch (e) { return {}; }
+}
+function saveApps(apps) {
+  localStorage.setItem('ct_apps', JSON.stringify(apps));
+}
+// 学生：下拉选老师 → 提交申请（等老师同意）
+function requestJoin() {
   if (!currentUser || isTeacher() || isAdmin()) return;
-  var codeEl = document.getElementById('myInvCode');
-  if (!codeEl) return;
-  var tcode = codeEl.value.trim().toUpperCase();
-  if (!tcode) { toast('请先输入老师的邀请码'); return; }
-  var tname = '';
-  for (var tu in userNames) {
-    if (userNames[tu] && userNames[tu].role === 'teacher' && userNames[tu].code === tcode) { tname = tu; break; }
-  }
-  if (!tname) { toast('邀请码不存在：请核对老师班级总览里显示的码'); return; }
-  userNames[currentUser].teacher = tname;
-  localStorage.setItem('ct_users', JSON.stringify(userNames));
+  if (userNames[currentUser] && userNames[currentUser].teacher) { toast('你已经在班里了'); return; }
+  var sel = document.getElementById('myTeacherSel');
+  if (!sel || !sel.value) { toast('还没有老师，等老师先注册'); return; }
+  var tid = sel.value;
+  if (!tid || !userNames[tid] || userNames[tid].role !== 'teacher') { toast('请选一位老师'); return; }
+  var apps = pendingApps();
+  apps[currentUser] = { tid: tid, time: Date.now() };
+  saveApps(apps);
   renderUser();
-  toast('🎉 已进 ' + tname + ' 老师的班');
+  toast('已申请进 ' + tid + ' 老师的班，等老师同意 ⏳');
+}
+// 学生：取消申请
+function cancelApply() {
+  if (!currentUser) return;
+  var apps = pendingApps();
+  if (!apps[currentUser]) { toast('没有待审批的申请'); return; }
+  delete apps[currentUser];
+  saveApps(apps);
+  renderUser();
+  toast('已取消申请');
+}
+// 老师/管理员：同意申请 → 学生正式进班
+function approveStudent(sid, tid) {
+  if ((!isTeacher() && !isAdmin()) || !sid || !tid) return;
+  if (!userNames[sid]) { toast('这个学生账号不存在'); return; }
+  var apps = pendingApps();
+  if (!apps[sid]) { toast('这个申请已经不存在了'); return; }
+  delete apps[sid];
+  saveApps(apps);
+  userNames[sid].teacher = tid;
+  localStorage.setItem('ct_users', JSON.stringify(userNames));
+  renderUser(); renderStats();
+  if (isAdmin()) renderGlobalOverview(); else renderClassOverview();
+  toast('已同意 ' + sid + ' 进 ' + tid + ' 的班 ✔');
+}
+// 老师/管理员：拒绝申请
+function rejectStudent(sid) {
+  if ((!isTeacher() && !isAdmin()) || !sid) return;
+  var apps = pendingApps();
+  if (!apps[sid]) { toast('这个申请已经不存在了'); return; }
+  delete apps[sid];
+  saveApps(apps);
+  renderUser(); renderStats();
+  if (isAdmin()) renderGlobalOverview(); else renderClassOverview();
+  toast('已拒绝 ' + sid + ' 的申请');
 }
 
 function openAccount(mode) {
@@ -674,7 +725,7 @@ function openAccount(mode) {
       '<option value="admin">我是管理员</option></select>' +
       '<input id="acTKey" type="password" placeholder="老师口令（当老师要填）" style="width:92%; display:none; margin:6px 0;">' +
       '<input id="acAkKey" type="password" placeholder="管理员口令（当管理员要填）" style="width:92%; display:none; margin:6px 0;">' +
-      '<input id="acTCode" type="text" placeholder="老师邀请码（学生填，可先不填）" style="width:92%; margin:6px 0;">' +
+      '<input id="acTCode" type="text" placeholder="老师邀请码（可先不填：之后右上角申请进班）" style="width:92%; margin:6px 0;">' +
       '<div style="margin-top:12px; text-align:right;">' +
       '<button class="btn-g" onclick="closeModal()">取消</button> ' +
       '<button class="btn-p" onclick="doReg()">注册</button></div>' +
@@ -1876,7 +1927,7 @@ function classList() {
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
     if (k.indexOf('ct_') !== 0) continue;
-    if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s') continue;
+    if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s' || k === 'ct_apps') continue; // 账号表/登录态/进班申请不算学生
     var who = k.slice(3);
     if (who === currentUser) continue;
     if (userNames[who] && (userNames[who].role === 'teacher' || userNames[who].role === 'admin')) continue; // 老师/管理员账号不算学生
@@ -1953,6 +2004,22 @@ function renderClassOverview() {
     }
   }
 
+  // —— 待审批申请（学生主动申请进班） ——
+  var apps1 = pendingApps();
+  var myApps = [];
+  for (var sid in apps1) if (apps1[sid] && apps1[sid].tid === currentUser) myApps.push({ sid: sid, tid: apps1[sid].tid });
+  h += '<h3 style="margin-top:14px;">📥 待审批申请（' + myApps.length + '）</h3>';
+  if (!myApps.length) {
+    h += '<p style="color:var(--muted);font-size:13px;">没有待审批申请。没进班的学生会在自己页面右上角选老师申请进班。</p>';
+  } else {
+    for (var ai = 0; ai < myApps.length; ai++) {
+      h += '<div class="classrow"><span class="cwho">👤 ' + esc(myApps[ai].sid) + '</span>' +
+           '<span class="ctag">申请进你的班</span>' +
+           '<button class="btn-p" onclick="approveStudent(\'' + myApps[ai].sid + '\',\'' + myApps[ai].tid + '\')">✅ 同意</button> ' +
+           '<button class="btn-g" onclick="rejectStudent(\'' + myApps[ai].sid + '\')">✖ 拒绝</button></div>';
+    }
+  }
+
   // —— 未分配学生 ——
   h += '<h3 style="margin-top:14px;">📥 未分配学生（' + free.length + '）</h3>';
   if (!free.length) {
@@ -1988,7 +2055,7 @@ function allStudentsInfo() {
   for (var i = 0; i < keys.length; i++) {
     var k = keys[i];
     if (k.indexOf('ct_') !== 0) continue;
-    if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s') continue;
+    if (k === 'ct_users' || k === 'ct_login' || k === 'ct_login_s' || k === 'ct_apps') continue;
     var who = k.slice(3);
     if (who === currentUser) continue;
     var rec = userNames[who];
@@ -2022,8 +2089,11 @@ function renderGlobalOverview() {
   var g = allStudentsInfo();
   var h = '<div class="box">';
   h += '<h2>🌐 全局总览（管理员）</h2>';
+  var appsG = pendingApps();
+  var appN = 0;
+  for (var kk in appsG) if (appsG[kk]) appN++;
   h += '<p style="font-size:12px;color:var(--muted);">共 ' + g.teachers.length + ' 位老师、' + g.stuN +
-       ' 名学生、' + g.projN + ' 个项目，待点评 ' + g.pend + ' 个。</p>';
+       ' 名学生、' + g.projN + ' 个项目，待点评 ' + g.pend + ' 个，待审批 ' + appN + ' 个。</p>';
 
   h += '<h3 style="margin-top:14px;">🧑‍🏫 全部老师（' + g.teachers.length + '）</h3>';
   if (!g.teachers.length) {
@@ -2036,6 +2106,19 @@ function renderGlobalOverview() {
       h += '<div class="classrow"><span class="cwho">🧑‍🏫 ' + esc(tw.who) + '</span>' +
            '<span class="ctag">邀请码 ' + esc(tw.code || '—') + '</span>' +
            '<span class="ctag">' + cnt + ' 名学生</span></div>';
+    }
+  }
+
+  h += '<h3 style="margin-top:14px;">📥 待审批申请（' + appN + '）</h3>';
+  if (!appN) {
+    h += '<p style="color:var(--muted);font-size:13px;">没有待审批申请。</p>';
+  } else {
+    for (var ka in appsG) {
+      if (!appsG[ka]) continue;
+      h += '<div class="classrow"><span class="cwho">👤 ' + esc(ka) + '</span>' +
+           '<span class="ctag">申请进 ' + esc(appsG[ka].tid) + ' 老师的班</span>' +
+           '<button class="btn-p" onclick="approveStudent(\'' + ka + '\',\'' + appsG[ka].tid + '\')">✅ 同意</button> ' +
+           '<button class="btn-g" onclick="rejectStudent(\'' + ka + '\')">✖ 拒绝</button></div>';
     }
   }
 
@@ -2091,6 +2174,8 @@ function claimStudent(who) {
   if ((!isTeacher() && !isAdmin()) || !userNames[who]) return;
   userNames[who].teacher = currentUser;
   localStorage.setItem('ct_users', JSON.stringify(userNames));
+  var appsC = pendingApps();   // 如果该学生有待审批申请，一并清掉
+  if (appsC[who]) { delete appsC[who]; saveApps(appsC); }
   renderUser();
   renderStats();
   renderClassOverview();
